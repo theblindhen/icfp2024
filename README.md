@@ -1,4 +1,4 @@
-The Blind Hen 2023 ICFP Contest submission
+The Blind Hen 2024 ICFP Contest submission
 ==========================================
 
 Team
@@ -64,7 +64,7 @@ For OCaml IDE support, start with
 For vim or emacs support, follow the instructions printed to stdout.
 
 For VSCode support, install OCaml Platform from the VSCode Marketplace. Open the
-workspace `icfp2023.code-workspace` in this directory to ensure we all use the
+workspace `icfp2024.code-workspace` in this directory to ensure we all use the
 same settings (format on save!).
 
 ### Documentation
