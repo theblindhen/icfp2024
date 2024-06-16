@@ -39,16 +39,6 @@ to modify your shell rc:
 How to develop
 --------------
 
-### GUI support
-
-To compile the GUI portion of our code, run
-
-    $ opam install bogue
-
-The GUI is run from the OCaml project subdirectory by running
-
-    $ dune exec gui [OPTIONS]
-
 ### Copilot in VSCode
 
 Intall the Microsoft-built version of VSCode, not the open-source ones. Then

@@ -5,28 +5,10 @@
  (libraries warmup))
 
 (executable
- (public_name gui)
- (name gui)
- (modules gui)
- (libraries warmup bogue))
-
-(executable
  (public_name mine)
  (name mine)
  (modules mine)
  (libraries warmup domainslib))
-
-(executable
- (public_name elmish)
- (name elmish)
- (modules elmish)
- (libraries warmup bogue tsdl))
-
-(executable
- (public_name canvas)
- (name canvas)
- (modules canvas)
- (libraries warmup ocaml-canvas))
 
 (executable
  (public_name punting_server)
