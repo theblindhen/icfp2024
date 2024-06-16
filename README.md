@@ -14,16 +14,10 @@ All in Copenhagen, Denmark
 How to build
 ------------
 
-First install the "opam" package manager and configure it as follows:
-
-    # apt-get install opam
-    $ opam init # Answer `y` at the prompt
-    $ opam switch create 5.0.0
-    follow instructions after previous command if run
-
-Install packages we need:
-
-    $ opam install core dune
+Use `.devcontainer/Dockerfile` in a container or replicate the environment on
+the host. On Linux there are complications with permissions when the UID
+inside the container (1001) doesn't match the UID on the host. See "Docker on
+Linux" below.
 
 Now go into the right subdirectory and build and run one of these commands:
 
@@ -35,6 +29,34 @@ On subsequent terminal sessions, do the following unless you allowed `opam init`
 to modify your shell rc:
 
     $ eval `opam config env`
+
+### Docker on Linux
+
+Ensure `/etc/subuid` has an entry for your user. Note the first number in that
+line, which is the UID offset. The `vscode` user in the Docker image has UID
+1001, which will be added to that number. In the following examples, we'll
+assume that the two numbers added together is 101001.
+
+Edit `/etc/docker/daemon.json`:
+
+```json
+{
+    "userns-remap": "YOUR_USER_NAME"
+}
+```
+
+Restart Docker: `systemctl restart docker`.
+
+Now use ACLs to allow both users to read and write, to set this as the default
+also, and to add all permissions to the ACL mask:
+
+```sh
+setfacl -R -m u:101001:rwX .
+setfacl -R -m u:YOUR_USER_NAME:rwX .
+setfacl -R -d -m u:101001:rwX .
+setfacl -R -d -m u:YOUR_USER_NAME:rwX .
+setfacl -R -d -m m::rwX .
+```
 
 How to develop
 --------------
