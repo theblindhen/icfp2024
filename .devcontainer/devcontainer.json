@@ -7,7 +7,14 @@
 	"build": {
 		"dockerfile": "Dockerfile"
 	},
-	"features": {}
+	"features": {},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ocamllabs.ocaml-platform"
+			]
+		}
+	}
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	// "features": {},
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.

@@ -9,6 +9,7 @@ RUN apt-get install -y libev-dev
 
 USER vscode
 
+# TODO: consider `--disable-sandboxing` if opam acts up in Docker
 RUN opam init -y
 
 # We're told by `opam init` to run this
@@ -18,3 +19,4 @@ RUN opam switch create 5.2.0
 
 RUN opam install -y core core_unix dune
 RUN opam install -y yojson atdgen opium domainslib
+RUN opam install -y ocaml-lsp-server ocamlformat

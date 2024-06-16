@@ -69,15 +69,9 @@ when it prompts you. Also install GitHub Copilot Chat.
 
 ### IDE
 
-For OCaml IDE support, start with
-
-    $ opam install merlin ocaml-lsp-server ocamlformat
-
-For vim or emacs support, follow the instructions printed to stdout.
-
-For VSCode support, install OCaml Platform from the VSCode Marketplace. Open the
-workspace `icfp2024.code-workspace` in this directory to ensure we all use the
-same settings (format on save!).
+For VSCode support, if not using the Dev Container, install OCaml Platform from
+the VSCode Marketplace. Open the workspace `icfp2024.code-workspace` in this
+directory to ensure we all use the same settings (format on save!).
 
 ### Documentation
 
