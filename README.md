@@ -69,6 +69,11 @@ when it prompts you. Also install GitHub Copilot Chat.
 
 ### IDE
 
+This repo contains a Dev Container. Follow [the Installation section of the
+official guide](https://code.visualstudio.com/docs/devcontainers/containers#_installation).
+Then click the `><` icon in the lower left corner of VSCode and select
+_Reopen in Container_.
+
 For VSCode support, if not using the Dev Container, install OCaml Platform from
 the VSCode Marketplace. Open the workspace `icfp2024.code-workspace` in this
 directory to ensure we all use the same settings (format on save!).
