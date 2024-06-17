@@ -11,7 +11,8 @@
 	"customizations": {
 		"vscode": {
 			"extensions": [
-				"ocamllabs.ocaml-platform"
+				"ocamllabs.ocaml-platform",
+				"elmtooling.elm-ls-vscode"
 			]
 		}
 	}
