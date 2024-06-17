@@ -15,3 +15,9 @@
  (name punting_server)
  (modules punting_server)
  (libraries warmup core opium))
+
+(executable
+ (public_name server)
+ (name server)
+ (modules server)
+ (libraries core opium))
