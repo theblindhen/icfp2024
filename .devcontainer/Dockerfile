@@ -7,6 +7,8 @@ RUN apt-get install -y opam
 # For OCaml's opium
 RUN apt-get install -y libev-dev
 
+RUN apt-get install -y elm-compiler
+
 USER vscode
 
 # TODO: consider `--disable-sandboxing` if opam acts up in Docker
