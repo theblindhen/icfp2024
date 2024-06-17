@@ -30,6 +30,16 @@ to modify your shell rc:
 
     $ eval `opam config env`
 
+To compile the frontend, go to frontend/ and run:
+
+    $ make elm.js
+
+To start the warmup backend, go to warmup/ and run:
+
+    $ dune exec server
+
+and open http://localhost:3000/.
+
 ### Docker on Linux
 
 Ensure `/etc/subuid` has an entry for your user. Note the first number in that
