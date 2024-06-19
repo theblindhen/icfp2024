@@ -22,3 +22,12 @@ RUN opam switch create 5.2.0
 RUN opam install -y core core_unix dune
 RUN opam install -y yojson atdgen opium domainslib
 RUN opam install -y ocaml-lsp-server ocamlformat
+
+# Install elm-format. The official installation method is to use `npm install
+# -g elm-format`, but npm is a heavyweight dependency that slows down image
+# creation. This tarball contains a single binary and nothing else.
+#
+# Here we put elm-format in the user-writable folder that happens to be in
+# PATH. The next time we modify the higher-up commands it might be nice to move
+# this up and install elm-format in /usr/local/bin.
+RUN curl -L https://github.com/avh4/elm-format/releases/download/0.8.7/elm-format-0.8.7-linux-x64.tgz | tar -C ~/.opam/5.2.0/bin -xz
