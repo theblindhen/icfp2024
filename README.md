@@ -14,31 +14,51 @@ All in Copenhagen, Denmark
 How to build
 ------------
 
-Use `.devcontainer/Dockerfile` in a container or replicate the environment on
-the host. On Linux there are complications with permissions when the UID
+Open the project in a devcontainer (see below) or replicate the environment on
+the host. 
+
+### Using the devcontainer
+
+The setup is specified in `.devcontainer/Dockerfile`, but if you use VSCode you don't need to know any of the details to use it:
+
+- Check out the repo and open the folder in VSCode.
+- VSCode should with a popup ask you whether you want to open the folder in a container. Click yes. If this popup doesn't appear, use View -> Command palette -> "Dev containers: Open workspace in container".
+- VSCode may tell you to install Docker, and should help you do so. Once Docker is installed, open it once to make sure you have accepted terms, etc. Once Docker is installed, you may need to repeat telling VSCode to open the workspace in a container.
+- Opening the container the first time will take a few minutes as Docker downloads the base image and installs the necessary packages (in the container).
+- Once this is done, terminals you open will be inside the container. From now you can follow the instructions below.
+
+On Linux there are complications with permissions when the UID
 inside the container (1001) doesn't match the UID on the host. See "Docker on
 Linux" below.
 
-Now go into the right subdirectory and build and run one of these commands:
+### Test the setup
 
+Get a terminal and do:
+
+    $ cd warmup
     $ dune build
     $ dune test
-    $ dune exec PROG_NAME
+    $ dune exec mine
+
+This should print something and start mining bitcoints. Just kill it with C-c.
+
+Test the frontend by opening another terminal and run:
+
+    $ cd frontend
+    $ make elm.js
+
+This generates `elm.js`, which is served by the warmup server. To run that go to your first terminal and run (still in the `warmup` directory):
+
+    $ dune exec server
+
+VSCode should open a popup saying it forwarded port 3000 in the container. Click this to open http://localhost:3000/ in the browser.
+
+### More setup
 
 On subsequent terminal sessions, do the following unless you allowed `opam init`
 to modify your shell rc:
 
     $ eval `opam config env`
-
-To compile the frontend, go to frontend/ and run:
-
-    $ make elm.js
-
-To start the warmup backend, go to warmup/ and run:
-
-    $ dune exec server
-
-and open http://localhost:3000/.
 
 ### Docker on Linux
 
