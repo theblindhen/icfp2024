@@ -15,14 +15,14 @@ How to build
 ------------
 
 Open the project in a devcontainer (see below) or replicate the environment on
-the host. 
+the host.
 
 ### Using the devcontainer
 
 The setup is specified in `.devcontainer/Dockerfile`, but if you use VSCode you don't need to know any of the details to use it:
 
-- Check out the repo and open the folder in VSCode.
-- VSCode should with a popup ask you whether you want to open the folder in a container. Click yes. If this popup doesn't appear, use View -> Command palette -> "Dev containers: Open workspace in container".
+- Check out the repo and open the workspace `icfp2024.code-workspace` in VSCode.
+- VSCode should show a popup ask you whether you want to open the workspace in a container. Click yes. If this popup doesn't appear, use View -> Command palette -> "Dev containers: Open workspace in container".
 - VSCode may tell you to install Docker, and should help you do so. Once Docker is installed, open it once to make sure you have accepted terms, etc. Once Docker is installed, you may need to repeat telling VSCode to open the workspace in a container.
 - Opening the container the first time will take a few minutes as Docker downloads the base image and installs the necessary packages (in the container).
 - Once this is done, terminals you open will be inside the container. From now you can follow the instructions below.
@@ -40,7 +40,7 @@ Get a terminal and do:
     $ dune test
     $ dune exec mine
 
-This should print something and start mining bitcoints. Just kill it with C-c.
+This should print something and start mining icfpennies. Just kill it with Ctrl+C.
 
 Test the frontend by opening another terminal and run:
 
@@ -52,13 +52,6 @@ This generates `elm.js`, which is served by the warmup server. To run that go to
     $ dune exec server
 
 VSCode should open a popup saying it forwarded port 3000 in the container. Click this to open http://localhost:3000/ in the browser.
-
-### More setup
-
-On subsequent terminal sessions, do the following unless you allowed `opam init`
-to modify your shell rc:
-
-    $ eval `opam config env`
 
 ### Docker on Linux
 
