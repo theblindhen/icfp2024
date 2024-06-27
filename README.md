@@ -53,6 +53,7 @@ This generates `elm.js`, which is served by the warmup server. To run that go to
 
 VSCode should open a popup saying it forwarded port 3000 in the container. Click this to open http://localhost:3000/ in the browser.
 
+
 ### Docker on Linux
 
 Ensure `/etc/subuid` has an entry for your user. Note the first number in that
