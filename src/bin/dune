@@ -9,3 +9,9 @@
  (name encode)
  (modules encode)
  (libraries lib core))
+
+(executable
+ (public_name request)
+ (name request)
+ (modules request)
+ (libraries lib cohttp cohttp-lwt-unix core))
