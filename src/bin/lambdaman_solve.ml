@@ -6,7 +6,7 @@ open Astar.Astar
 let directions = [| (0, 1, 'R'); (0, -1, 'L'); (1, 0, 'D'); (-1, 0, 'U') |]
 (* Define the type of the problem *)
 
-(* Read the grid from a file *)
+(* Read the grid from a file as a string array *)
 let read_grid filename =
   let in_channel = In_channel.create filename in
   let rec aux grid =
@@ -19,6 +19,9 @@ let read_grid filename =
         List.rev grid
   in
   Array.of_list (aux [])
+
+(* Convert a grid to a char array array *)
+let to_char_array grid = Array.map ~f:String.to_array grid
 
 (* Find the starting position of Lambda-Man and the positions of all pills *)
 let find_positions grid =
@@ -78,28 +81,45 @@ let find_shortest_path grid start goal =
   in
   directions_from_path path
 
+let flood_find_nearest_pill (grid : char array array) (start : int * int) : int * int =
+  let grid_width = Array.length grid.(0) in
+  let grid_height = Array.length grid in
+  let visited = Array.make_matrix ~dimx:grid_height ~dimy:grid_width false in
+  let queue = Queue.create () in
+  Queue.enqueue queue start;
+  visited.(fst start).(snd start) <- true;
+  let found = ref None in
+  while not (Queue.is_empty queue) do
+    let i, j = Queue.dequeue_exn queue in
+    if Stdlib.( = ) grid.(i).(j) '.' then (
+      found := Some (i, j);
+      Queue.clear queue)
+    else
+      Array.iter directions ~f:(fun (di, dj, _) ->
+          let i', j' = (i + di, j + dj) in
+          if
+            i' >= 0
+            && i' < grid_height
+            && j' >= 0
+            && j' < grid_width
+            && Char.(grid.(i').(j') <> '#')
+            && not visited.(i').(j')
+          then (
+            visited.(i').(j') <- true;
+            Queue.enqueue queue (i', j')))
+  done;
+  match !found with
+  | Some p -> p
+  | None -> failwith "No pill found"
+
 (* Find the shortest path to visit all pills using a greedy algorithm with A* *)
 let solve_traveling_lambdaman grid start pills =
-  let positions = List.to_array (start :: pills) in
-  let n = Array.length positions in
-  let visited = Array.create ~len:n false in
   let path = ref [] in
-  let current_pos = ref 0 in
-  visited.(!current_pos) <- true;
-  for _ = 1 to n - 1 do
-    let next_pos = ref (-1) in
-    let min_dist = ref Int.max_value in
-    for i = 0 to n - 1 do
-      if
-        (not visited.(i))
-        && i <> !current_pos
-        && manhattan_distance positions.(!current_pos) positions.(i) < !min_dist
-      then
-        let p = find_shortest_path grid positions.(!current_pos) positions.(i) in
-        if List.length p < !min_dist then (
-          next_pos := i;
-          min_dist := List.length p)
-    done;
+  let (* mut *) char_grid = to_char_array grid in
+  let current_pos = ref start in
+  for _ = 1 to List.length pills do
+    let next_pos = flood_find_nearest_pill char_grid !current_pos in
+    let next_path = find_shortest_path grid !current_pos next_pos in
     (* let _ =
          print_endline
            (sprintf "%s %s %s\n"
@@ -109,9 +129,9 @@ let solve_traveling_lambdaman grid start pills =
               (String.of_char_list
                  (find_shortest_path grid positions.(!current_pos) positions.(!next_pos))))
        in *)
-    path := !path @ find_shortest_path grid positions.(!current_pos) positions.(!next_pos);
-    visited.(!next_pos) <- true;
-    current_pos := !next_pos
+    path := !path @ next_path;
+    char_grid.(fst next_pos).(snd next_pos) <- ' ';
+    current_pos := next_pos
   done;
   !path
 
