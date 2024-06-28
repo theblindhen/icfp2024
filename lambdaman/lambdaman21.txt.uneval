@@ -1,0 +1,18 @@
+Overflows:
+(Binary Apply        
+ (Binary Apply
+  (Abstract 1
+   (Binary Apply
+    (Abstract 2 (Binary Apply (Var 1) (Binary Apply (Var 2) (Var 2))))
+    (Abstract 2 (Binary Apply (Var 1) (Binary Apply (Var 2) (Var 2))))))
+  (Abstract 1
+   (Abstract 2
+    (If (Binary Equal (Var 2) (Integer 0))
+     (String
+      ........................................................................................................................................................................................................)
+     (Binary StringConcat
+      (Binary Apply (Var 1) (Binary Div (Var 2) (Integer 4)))
+      (Binary Take (Integer 1)
+       (Binary Drop (Binary Mod (Var 2) (Integer 4)) (String  ".\
+                                                             \n#L"))))))))
+ (Binary Add (Integer -4570084165763281099) (Integer 4570084165763281100)))
