@@ -11,7 +11,7 @@ let best_sol dir name =
       | Some best ->
           let best_file = sol_dir ^ "/" ^ Int.to_string best in
           let sol = In_channel.read_all best_file in
-          Some (best, sol)
+          Some (best, best_file, sol)
       | None -> None)
   | _ -> None
 
@@ -24,7 +24,7 @@ let () =
   Communication.get_scores game
   |> List.iter ~f:(fun (name, our, best) ->
          match best_sol dir name with
-         | Some (best_local_score, sol) ->
+         | Some (best_local_score, best_local_file, sol) ->
              let local_better =
                match our with
                | Some our -> best_local_score < our
@@ -33,5 +33,6 @@ let () =
              if local_better then (
                printf "Submitting solution for %s with score %d (best score is %d)\n" name
                  best_local_score best;
-               Communication.submit_solution name sol)
+               Communication.submit_solution name sol;
+               Core_unix.fork_exec ~prog:"git" ~argv:[ "git"; "add"; best_local_file ] () |> ignore)
          | None -> ())
