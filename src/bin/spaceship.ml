@@ -58,7 +58,7 @@ let () =
         - Stop when we reach it (later: keep moving)
   *)
   let sol =
-    let rec step_to_point (distx, disty) (vx, vy) =
+    let[@tail_mod_cons] rec step_to_point (distx, disty) (vx, vy) =
       (*let () = Printf.eprintf "dist: (%d, %d), vel: (%d, %d)\n" distx disty vx vy in*)
       if distx = 0 && disty = 0 && vx = 0 && vy = 0 then []
       else
@@ -66,16 +66,17 @@ let () =
         let vy' = Sign.to_int (Int.sign disty) in
         let ax = vx' - vx in
         let ay = vy' - vy in
-        move_of_direction (ax, ay) :: step_to_point (distx - vx', disty - vy') (vx', vy')
+        move_of_direction (ax, ay)
+        :: (step_to_point [@tailcall]) (distx - vx', disty - vy') (vx', vy')
     in
-    let rec to_remaining_points (startx, starty) points =
+    let[@tail_mod_cons] rec to_remaining_points (startx, starty) points =
       match points with
       | [] -> []
       | (endx, endy) :: points ->
           let distx = endx - startx in
           let disty = endy - starty in
           let steps = step_to_point (distx, disty) (0, 0) in
-          steps :: to_remaining_points (endx, endy) points
+          steps :: (to_remaining_points [@tailcall]) (endx, endy) points
     in
     List.concat (to_remaining_points (0, 0) problem)
   in
