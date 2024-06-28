@@ -23,8 +23,9 @@ let inverted_table =
 
 let encode_string input =
   let input = String.strip input in
-  let input = String.map input ~f:(fun c -> inverted_table.(Char.to_int c)) in
-  "S" ^ input
+  String.map input ~f:(fun c -> inverted_table.(Char.to_int c))
+
+let encode_string_token input = "S" ^ encode_string input
 
 type unop = Minus | Not | StringToInt | IntToString [@@deriving sexp, equal, compare]
 
