@@ -37,10 +37,16 @@ let move_of_direction (ax, ay) =
   | 1, 1 -> '9'
   | _ -> failwith "Can't move this far in one step"
 
+(* Gets the square closest to a given point, measured by chessboard distance. *)
+let closest_square (x, y) squares =
+  List.map squares ~f:(fun ((x', y') as xy') -> (xy', max (abs (x' - x)) (abs (y' - y))))
+  |> List.min_elt ~compare:(fun (_, d1) (_, d2) -> Int.compare d1 d2)
+  |> Option.map ~f:fst
+
 let solve (problem : (int * int) list) =
-  (* Simplest possible solution strategy:
+  (* Solution strategy:
       - While where are squares to visit:
-        - Pick the next square (later: the closest square)
+        - Pick the closest square
         - Move towards it with both vx and vy between -1 and 1 (later: larger values)
         - Stop when we reach it (later: keep moving)
   *)
@@ -55,9 +61,13 @@ let solve (problem : (int * int) list) =
       move_of_direction (ax, ay) :: (step_to_point [@tailcall]) (distx - vx', disty - vy') (vx', vy')
   in
   let[@tail_mod_cons] rec to_remaining_points (startx, starty) points =
-    match points with
-    | [] -> []
-    | (endx, endy) :: points ->
+    match closest_square (startx, starty) points with
+    | None -> []
+    | Some (endx, endy) ->
+        let points =
+          (* Remove the point we found from `points`. *)
+          List.filter points ~f:(Stdlib.( <> ) (endx, endy))
+        in
         let distx = endx - startx in
         let disty = endy - starty in
         let steps = step_to_point (distx, disty) (0, 0) in
