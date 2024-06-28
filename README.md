@@ -27,6 +27,9 @@ The setup is specified in `.devcontainer/Dockerfile`, but if you use VSCode you 
 - Opening the container the first time will take a few minutes as Docker downloads the base image and installs the necessary packages (in the container).
 - Once this is done, terminals you open will be inside the container. From now you can follow the instructions below.
 
+On Windows there are complications with file ownership and git configuration.
+See "Docker on Windows" below.
+
 On Linux there are complications with permissions when the UID
 inside the container (1001) doesn't match the UID on the host. See "Docker on
 Linux" below.
@@ -52,6 +55,24 @@ This generates `elm.js`, which is served by the warmup server. To run that go to
     $ dune exec server
 
 VSCode should open a popup saying it forwarded port 3000 in the container. Click this to open http://localhost:3000/ in the browser.
+
+### Docker on Windows
+
+Inside the container, do this once:
+
+```sh
+ln -s ~/warmup_build warmup/_build
+# Something similar will be needed for the contest sources
+```
+
+Set your git credentials and other personal git settings in a WSL2 shell. They
+will be copied in from there every time you start the container.
+**In a WSL2 shell (NOT in the VSCode terminal)** do this once:
+
+```sh
+git config --global user.name "Your Name"
+git config --global user.email "your.email@address"
+```
 
 ### Docker on Linux
 
