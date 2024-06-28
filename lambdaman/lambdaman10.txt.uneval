@@ -1,0 +1,18 @@
+(Binary StringConcat (String L)
+ (Binary Apply
+  (Binary Apply
+   (Abstract 1
+    (Binary Apply
+     (Abstract 2 (Binary Apply (Var 1) (Binary Apply (Var 2) (Var 2))))
+     (Abstract 2 (Binary Apply (Var 1) (Binary Apply (Var 2) (Var 2))))))
+   (Abstract 1
+    (Abstract 2
+     (If (Binary Equal (Var 2) (Integer 2500)) (String "")
+      (Binary StringConcat
+       (If (Binary Equal (Binary Mod (Var 2) (Integer 50)) (Integer 0))
+        (String "\n") (String ""))
+       (Binary StringConcat
+        (If (Binary Equal (Binary Mod (Var 2) (Integer 11)) (Integer 0))
+         (String #) (String .))
+        (Binary Apply (Var 1) (Binary Add (Var 2) (Integer 1)))))))))
+  (Integer 1)))
