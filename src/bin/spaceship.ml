@@ -57,21 +57,28 @@ let () =
         - Move towards it with both vx and vy between -1 and 1 (later: larger values)
         - Stop when we reach it (later: keep moving)
   *)
-  let _, _, sol_rev =
-    List.fold problem ~init:(0, 0, []) ~f:(fun (startx, starty, sol_rev) (endx, endy) ->
-        let rec steps (distx, disty) (vx, vy) =
-          (*let () = Printf.eprintf "dist: (%d, %d), vel: (%d, %d)\n" distx disty vx vy in*)
-          if distx = 0 && disty = 0 && vx = 0 && vy = 0 then []
-          else
-            let vx' = Sign.to_int (Int.sign distx) in
-            let vy' = Sign.to_int (Int.sign disty) in
-            let ax = vx' - vx in
-            let ay = vy' - vy in
-            move_of_direction (ax, ay) :: steps (distx - vx', disty - vy') (vx', vy')
-        in
-        (endx, endy, steps (endx - startx, endy - starty) (0, 0) :: sol_rev))
+  let sol =
+    let rec step_to_point (distx, disty) (vx, vy) =
+      (*let () = Printf.eprintf "dist: (%d, %d), vel: (%d, %d)\n" distx disty vx vy in*)
+      if distx = 0 && disty = 0 && vx = 0 && vy = 0 then []
+      else
+        let vx' = Sign.to_int (Int.sign distx) in
+        let vy' = Sign.to_int (Int.sign disty) in
+        let ax = vx' - vx in
+        let ay = vy' - vy in
+        move_of_direction (ax, ay) :: step_to_point (distx - vx', disty - vy') (vx', vy')
+    in
+    let rec to_remaining_points (startx, starty) points =
+      match points with
+      | [] -> []
+      | (endx, endy) :: points ->
+          let distx = endx - startx in
+          let disty = endy - starty in
+          let steps = step_to_point (distx, disty) (0, 0) in
+          steps :: to_remaining_points (endx, endy) points
+    in
+    List.concat (to_remaining_points (0, 0) problem)
   in
-  let sol = List.rev sol_rev |> List.concat in
   print_endline (String.of_char_list sol);
   Printf.eprintf "Length: %d\n" (List.length sol);
   ()
