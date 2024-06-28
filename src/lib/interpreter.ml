@@ -73,8 +73,8 @@ let rec eval_step (prg : Language.term) : term =
   | Var x -> Var x
   | Unary (Minus, Integer i) -> Integer (-i)
   | Unary (Not, Boolean b) -> Boolean (not b)
-  | Unary (StringToInt, String s) -> Integer (parse_int s)
-  | Unary (IntToString, Integer i) -> String (int_as_string i)
+  | Unary (StringToInt, String s) -> Integer (encode_string s |> parse_int)
+  | Unary (IntToString, Integer i) -> String (int_as_string i |> decode_string)
   | Unary (op, t) -> Unary (op, eval_step t)
   | Binary (Add, Integer i1, Integer i2) -> Integer (i1 + i2)
   | Binary (Sub, Integer i1, Integer i2) -> Integer (i1 - i2)
@@ -84,11 +84,13 @@ let rec eval_step (prg : Language.term) : term =
   | Binary (Less, Integer i1, Integer i2) -> Boolean (i1 < i2)
   | Binary (Greater, Integer i1, Integer i2) -> Boolean (i1 > i2)
   | Binary (Equal, Integer i1, Integer i2) -> Boolean (i1 = i2)
+  | Binary (Equal, String s1, String s2) -> Boolean (String.equal s1 s2)
+  | Binary (Equal, Boolean b1, Boolean b2) -> Boolean (Stdlib.( = ) b1 b2)
   | Binary (And, Boolean b1, Boolean b2) -> Boolean (b1 && b2)
   | Binary (Or, Boolean b1, Boolean b2) -> Boolean (b1 || b2)
   | Binary (StringConcat, String s1, String s2) -> String (s1 ^ s2)
-  | Binary (Take, String s, Integer i) -> String (String.prefix s i)
-  | Binary (Drop, String s, Integer i) -> String (String.drop_prefix s i)
+  | Binary (Take, Integer i, String s) -> String (String.prefix s i)
+  | Binary (Drop, Integer i, String s) -> String (String.drop_prefix s i)
   | Binary (Apply, Abstract (x, t), v) -> subst t x v
   | Binary (Apply, t, v) -> Binary (Apply, eval_step t, v)
   | Binary (op (* not Apply *), t1, t2) -> Binary (op, eval_step t1, eval_step t2)
@@ -106,8 +108,8 @@ let eval (prg : term) : term =
 let%test_unit "eval unop" =
   [%test_result: term] (eval_step (Unary (Minus, Integer 1))) ~expect:(Integer (-1));
   [%test_result: term] (eval_step (Unary (Not, Boolean true))) ~expect:(Boolean false);
-  [%test_result: term] (eval_step (Unary (StringToInt, String "/6"))) ~expect:(Integer 1337);
-  [%test_result: term] (eval_step (Unary (IntToString, Integer 1337))) ~expect:(String "/6")
+  [%test_result: term] (eval_step (Unary (StringToInt, String "test"))) ~expect:(Integer 15818151);
+  [%test_result: term] (eval_step (Unary (IntToString, Integer 15818151))) ~expect:(String "test")
 
 let%test_unit "eval binop" =
   [%test_result: term] (eval_step (Binary (Add, Integer 1, Integer 2))) ~expect:(Integer 3);
@@ -125,9 +127,9 @@ let%test_unit "eval binop" =
   [%test_result: term]
     (eval_step (Binary (StringConcat, String "a", String "b")))
     ~expect:(String "ab");
-  [%test_result: term] (eval_step (Binary (Take, String "abcdef", Integer 2))) ~expect:(String "ab");
+  [%test_result: term] (eval_step (Binary (Take, Integer 2, String "abcdef"))) ~expect:(String "ab");
   [%test_result: term]
-    (eval_step (Binary (Drop, String "abcdef", Integer 2)))
+    (eval_step (Binary (Drop, Integer 2, String "abcdef")))
     ~expect:(String "cdef")
 
 let%test_unit "eval" =
