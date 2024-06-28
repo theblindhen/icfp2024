@@ -91,14 +91,31 @@ let solve (problem : (int * int) list) =
   in
   List.concat (to_remaining_points (0, 0) problem)
 
+let solutions_dir map_dir level = map_dir ^ "/solutions-" ^ level
+let solution_file map_dir level score = solutions_dir map_dir level ^ "/" ^ Int.to_string score
+let score sol = List.length sol
+
+let create_solutions_dir map_dir level =
+  match Sys_unix.file_exists (solutions_dir map_dir level) with
+  | `No -> Core_unix.mkdir (solutions_dir map_dir level)
+  | _ -> ()
+
+let write_solution map_dir level sol =
+  create_solutions_dir map_dir level;
+  let score = score sol in
+  let solution_filename = solution_file map_dir level score in
+  match Sys_unix.file_exists solution_filename with
+  | `No -> Out_channel.write_all (solution_file map_dir level score) ~data:(String.of_char_list sol)
+  | _ -> ()
+
 let () =
-  let map_file =
+  let map_dir, level =
     match Sys.get_argv () with
-    | [| _; filename |] -> filename
-    | _ -> failwith "Usage: spaceship MAP_FILE"
+    | [| _; dir; level |] -> (dir, level)
+    | _ -> failwith "Usage: spaceship MAP_DIR LEVEL"
   in
   let problem =
-    In_channel.read_lines map_file
+    In_channel.read_lines (map_dir ^ "/spaceship" ^ level ^ ".txt")
     |> List.filter ~f:(String.( <> ) "") (* Skip empty lines *)
     |> List.map ~f:(fun line ->
            match String.split line ~on:' ' with
@@ -106,6 +123,7 @@ let () =
            | _ -> failwith ("Invalid line: " ^ line))
   in
   let sol = solve problem in
+  write_solution map_dir level sol;
   print_endline (String.of_char_list sol);
   Printf.eprintf "Length: %d\n" (List.length sol);
   ()

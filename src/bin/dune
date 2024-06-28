@@ -14,10 +14,22 @@
  (public_name request)
  (name request)
  (modules request)
- (libraries lib cohttp cohttp-lwt-unix core))
+ (libraries lib core))
+
+(executable
+ (public_name lambdaman_solve)
+ (name lambdaman_solve)
+ (modules lambdaman_solve)
+ (libraries lib core))
 
 (executable
  (public_name spaceship)
  (name spaceship)
  (modules spaceship)
- (libraries core))
+ (libraries core core_unix core_unix.sys_unix))
+
+(executable
+ (public_name scores)
+ (name scores)
+ (modules scores)
+ (libraries lib core))
