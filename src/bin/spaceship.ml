@@ -1,4 +1,5 @@
 open Core
+open Lib
 
 (*
 From the task description:
@@ -129,23 +130,6 @@ let simulate problem solution =
         ^ String.concat ~sep:"; " (List.map points ~f:(fun (x, y) -> Printf.sprintf "(%d,%d)" x y))
         )
 
-let solutions_dir map_dir level = map_dir ^ "/spaceship" ^ level
-let solution_file map_dir level score = solutions_dir map_dir level ^ "/" ^ Int.to_string score
-let score sol = List.length sol
-
-let create_solutions_dir map_dir level =
-  match Sys_unix.file_exists (solutions_dir map_dir level) with
-  | `No -> Core_unix.mkdir (solutions_dir map_dir level)
-  | _ -> ()
-
-let write_solution map_dir level sol =
-  create_solutions_dir map_dir level;
-  let score = score sol in
-  let solution_filename = solution_file map_dir level score in
-  match Sys_unix.file_exists solution_filename with
-  | `No -> Out_channel.write_all (solution_file map_dir level score) ~data:(String.of_char_list sol)
-  | _ -> ()
-
 let () =
   let map_dir, level =
     match Sys.get_argv () with
@@ -162,6 +146,6 @@ let () =
   in
   let sol = solve problem in
   simulate problem sol;
-  write_solution map_dir level sol;
+  Solutions.write_solution map_dir level sol;
   print_endline (String.of_char_list sol);
   ()
