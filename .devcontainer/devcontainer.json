@@ -13,7 +13,10 @@
 			"extensions": [
 				"ocamllabs.ocaml-platform",
 				"elmtooling.elm-ls-vscode"
-			]
+			],
+			"settings": {
+				"editor.formatOnSave": true
+			}
 		}
 	},
 	// Features to add to the dev container. More info: https://containers.dev/features.
