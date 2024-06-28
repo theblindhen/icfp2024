@@ -15,3 +15,9 @@
  (name request)
  (modules request)
  (libraries lib cohttp cohttp-lwt-unix core))
+
+(executable
+ (public_name spaceship)
+ (name spaceship)
+ (modules spaceship)
+ (libraries core))
