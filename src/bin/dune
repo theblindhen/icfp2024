@@ -1,0 +1,5 @@
+(executable
+ (public_name decode)
+ (name decode)
+ (modules decode)
+ (libraries core))
