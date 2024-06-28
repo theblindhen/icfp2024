@@ -7,6 +7,12 @@ let () =
     | [| _; game; dir |] -> (game, dir)
     | _ -> failwith "Usage: submit game dir"
   in
+  let submit =
+    match game with
+    | "spaceship" -> fun sol -> Communication.submit_solution game sol
+    | "lambdaman" -> fun sol -> Communication.request_with_auth sol
+    | _ -> failwith ("Unknown game: " ^ game)
+  in
   Communication.get_scores game
   |> List.iter ~f:(fun (name, our, best) ->
          match Solutions.best_sol dir name with
@@ -19,6 +25,6 @@ let () =
              if local_better then (
                printf "Submitting solution for %s with score %d (best score is %d)\n" name
                  best_local_score best;
-               Communication.submit_solution name sol;
+               submit sol;
                Core_unix.fork_exec ~prog:"git" ~argv:[ "git"; "add"; best_local_file ] () |> ignore)
          | None -> ())

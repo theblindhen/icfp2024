@@ -7,9 +7,9 @@ open Core
 open Lwt
 open Re
 
-let get_body auth_token input =
+let get_body_of_token auth_token input =
   let headers = Cohttp.Header.of_list [ ("Authorization", "Bearer " ^ auth_token) ] in
-  let body = Cohttp_lwt.Body.of_string (Language.encode_string_token input) in
+  let body = Cohttp_lwt.Body.of_string input in
   let uri = "https://boundvariable.space/communicate" in
   Cohttp_lwt_unix.Client.post ~headers ~body (Uri.of_string uri) >>= fun (_resp, body) ->
   Cohttp_lwt.Body.to_string body >>= fun body_string ->
@@ -19,6 +19,16 @@ let get_body auth_token input =
   (* printf "Eval: %s" (Language.sexp_of_term evaled |> Sexp.to_string_hum); *)
   Lwt.return evaled
 
+let get_body auth_token input = get_body_of_token auth_token (Language.encode_string_token input)
+
+let request_with_auth token =
+  let auth_token = Sys.getenv_exn "AUTH_TOKEN" in
+  let response = Lwt_main.run (get_body_of_token auth_token token) in
+  match response with
+  | String s -> print_endline s
+  | _ -> failwith "Invalid response"
+
+(* Score utils *)
 let name = Re.compile Re.(seq [ str "["; group (rep1 alnum); str "]" ])
 let your_score = Re.compile Re.(seq [ str "Your score: "; group (rep1 digit); str "." ])
 let best_score = Re.compile Re.(seq [ str "Best score: "; group (rep1 digit); str "." ])

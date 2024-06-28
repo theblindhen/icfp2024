@@ -146,6 +146,7 @@ let () =
   in
   let sol = solve problem in
   simulate problem sol;
-  Solutions.write_solution map_dir level sol;
-  print_endline (String.of_char_list sol);
+  let sol_str = String.of_char_list sol in
+  Solutions.write_solution "spaceship" map_dir level sol_str;
+  print_endline sol_str;
   ()
