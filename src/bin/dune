@@ -3,3 +3,9 @@
  (name decode)
  (modules decode)
  (libraries lib core))
+
+(executable
+ (public_name encode)
+ (name encode)
+ (modules encode)
+ (libraries lib core))
