@@ -16,3 +16,17 @@ let write_solution map_dir level sol =
   match Sys_unix.file_exists solution_filename with
   | `No -> Out_channel.write_all (solution_file map_dir level score) ~data:(String.of_char_list sol)
   | _ -> ()
+
+let best_sol dir name =
+  let sol_dir = dir ^ "/" ^ name in
+  match Sys_unix.file_exists sol_dir with
+  | `Yes -> (
+      let files = Sys_unix.ls_dir sol_dir in
+      let best = files |> List.map ~f:Int.of_string |> List.min_elt ~compare:Int.compare in
+      match best with
+      | Some best ->
+          let best_file = sol_dir ^ "/" ^ Int.to_string best in
+          let sol = In_channel.read_all best_file in
+          Some (best, best_file, sol)
+      | None -> None)
+  | _ -> None
