@@ -3,12 +3,14 @@
  (inline_tests)
  (preprocess
   (pps ppx_jane))
- (modules language astar)
+ (modules language astar interpreter communication)
  (flags
   -strict-sequence
   -strict-formats
   -short-paths
   -keep-locs
+  -warn-error
+  A
   -w
   +a-4-29-33-40-41-42-44-45-48-70)
- (libraries core))
+ (libraries core lwt cohttp cohttp-lwt-unix))

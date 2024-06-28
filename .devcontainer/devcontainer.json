@@ -12,7 +12,8 @@
 		"vscode": {
 			"extensions": [
 				"ocamllabs.ocaml-platform",
-				"elmtooling.elm-ls-vscode"
+				"elmtooling.elm-ls-vscode",
+				"GitHub.copilot"
 			],
 			"settings": {
 				"editor.formatOnSave": true

@@ -21,3 +21,9 @@
  (name lambdaman_solve)
  (modules lambdaman_solve)
  (libraries lib core))
+
+(executable
+ (public_name spaceship)
+ (name spaceship)
+ (modules spaceship)
+ (libraries core))
