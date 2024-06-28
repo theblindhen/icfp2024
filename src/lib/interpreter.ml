@@ -96,7 +96,6 @@ let rec eval_step (prg : Language.term) : term =
   | Binary (op (* not Apply *), t1, t2) -> Binary (op, eval_step t1, eval_step t2)
   | If (Boolean b, t1, t2) -> if b then t1 else t2
   | If (op, t1, t2) -> If (eval_step op, t1, t2)
-  | _ -> failwith "Not supported yet"
 
 let eval (prg : term) : term =
   let rec eval' (prg : term) : term =
