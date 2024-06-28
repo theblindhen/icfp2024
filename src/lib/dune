@@ -1,0 +1,14 @@
+(library
+ (name lib)
+ (inline_tests)
+ (preprocess
+  (pps ppx_jane))
+ (modules language)
+ (flags
+  -strict-sequence
+  -strict-formats
+  -short-paths
+  -keep-locs
+  -w
+  +a-4-29-33-40-41-42-44-45-48-70)
+ (libraries core))
