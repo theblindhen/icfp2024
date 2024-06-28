@@ -37,6 +37,18 @@ let move_of_direction (ax, ay) =
   | 1, 1 -> '9'
   | _ -> failwith "Can't move this far in one step"
 
+let direction_of_move = function
+  | '1' -> (-1, -1)
+  | '2' -> (0, -1)
+  | '3' -> (1, -1)
+  | '4' -> (-1, 0)
+  | '5' -> (0, 0)
+  | '6' -> (1, 0)
+  | '7' -> (-1, 1)
+  | '8' -> (0, 1)
+  | '9' -> (1, 1)
+  | _ -> failwith "No such move exists"
+
 (* Gets the square closest to a given point, measured by chessboard distance. *)
 let closest_square (x, y) squares =
   List.map squares ~f:(fun ((x', y') as xy') -> (xy', max (abs (x' - x)) (abs (y' - y))))
@@ -91,6 +103,32 @@ let solve (problem : (int * int) list) =
   in
   List.concat (to_remaining_points (0, 0) problem)
 
+let simulate problem solution =
+  let points_map = Hash_set.Poly.of_list problem in
+  Hash_set.Poly.remove points_map (0, 0);
+  let _, _, max_speed =
+    List.fold solution
+      ~init:((0, 0), (0, 0), 0)
+      ~f:(fun ((x, y), (dx, dy), max_speed) move ->
+        let ax, ay = direction_of_move move in
+        let dx = dx + ax in
+        let dy = dy + ay in
+        let max_speed = Int.max max_speed (Int.max (abs dx) (abs dy)) in
+        let x = x + dx in
+        let y = y + dy in
+        Hash_set.Poly.remove points_map (x, y);
+        ((x, y), (dx, dy), max_speed))
+  in
+  match Hash_set.Poly.to_list points_map with
+  | [] ->
+      Printf.eprintf "Max speed: %d\n%!" max_speed;
+      Printf.eprintf "Length (score): %d\n%!" (List.length solution)
+  | points ->
+      failwith
+        ("Not all points visited: "
+        ^ String.concat ~sep:"; " (List.map points ~f:(fun (x, y) -> Printf.sprintf "(%d,%d)" x y))
+        )
+
 let solutions_dir map_dir level = map_dir ^ "/spaceship" ^ level
 let solution_file map_dir level score = solutions_dir map_dir level ^ "/" ^ Int.to_string score
 let score sol = List.length sol
@@ -123,7 +161,7 @@ let () =
            | _ -> failwith ("Invalid line: " ^ line))
   in
   let sol = solve problem in
+  simulate problem sol;
   write_solution map_dir level sol;
   print_endline (String.of_char_list sol);
-  Printf.eprintf "Length: %d\n" (List.length sol);
   ()
