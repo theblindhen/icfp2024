@@ -20,6 +20,23 @@ Now the challenge is the following: given a list of squares to be visited, find
 a sequence of moves that visits all those squares.
  *)
 
+(* Numeric keypad, for reference:
+    7 8 9
+    4 5 6
+    1 2 3 *)
+let move_of_direction (ax, ay) =
+  match (ax, ay) with
+  | -1, -1 -> '1'
+  | 0, -1 -> '2'
+  | 1, -1 -> '3'
+  | -1, 0 -> '4'
+  | 0, 0 -> '5'
+  | 1, 0 -> '6'
+  | -1, 1 -> '7'
+  | 0, 1 -> '8'
+  | 1, 1 -> '9'
+  | _ -> failwith "Can't move this far in one step"
+
 let () =
   let map_file =
     match Sys.get_argv () with
@@ -42,22 +59,19 @@ let () =
   *)
   let _, _, sol_rev =
     List.fold problem ~init:(0, 0, []) ~f:(fun (startx, starty, sol_rev) (endx, endy) ->
-        (* Numeric keypad, for reference:
-            7 8 9
-            4 5 6
-            1 2 3 *)
-        let moves_x_axis =
-          if startx < endx then ('6' :: List.init (endx - startx - 1) ~f:(const '5')) @ [ '4' ]
-          else if startx > endx then ('4' :: List.init (startx - endx - 1) ~f:(const '5')) @ [ '6' ]
-          else []
+        let rec steps (distx, disty) (vx, vy) =
+          (*let () = Printf.eprintf "dist: (%d, %d), vel: (%d, %d)\n" distx disty vx vy in*)
+          if distx = 0 && disty = 0 && vx = 0 && vy = 0 then []
+          else
+            let vx' = Sign.to_int (Int.sign distx) in
+            let vy' = Sign.to_int (Int.sign disty) in
+            let ax = vx' - vx in
+            let ay = vy' - vy in
+            move_of_direction (ax, ay) :: steps (distx - vx', disty - vy') (vx', vy')
         in
-        let moves_y_axis =
-          if starty < endy then ('8' :: List.init (endy - starty - 1) ~f:(const '5')) @ [ '2' ]
-          else if starty > endy then ('2' :: List.init (starty - endy - 1) ~f:(const '5')) @ [ '8' ]
-          else []
-        in
-        (endx, endy, (moves_x_axis @ moves_y_axis) :: sol_rev))
+        (endx, endy, steps (endx - startx, endy - starty) (0, 0) :: sol_rev))
   in
   let sol = List.rev sol_rev |> List.concat in
   print_endline (String.of_char_list sol);
+  Printf.eprintf "Length: %d\n" (List.length sol);
   ()
