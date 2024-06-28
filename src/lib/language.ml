@@ -26,7 +26,7 @@ let encode_string input =
   let input = String.map input ~f:(fun c -> inverted_table.(Char.to_int c)) in
   "S" ^ input
 
-type unop = Minus | Not | StringToInt | IntToString [@@deriving sexp, compare]
+type unop = Minus | Not | StringToInt | IntToString [@@deriving sexp, equal, compare]
 
 type binop =
   | Add
@@ -43,7 +43,7 @@ type binop =
   | Take
   | Drop
   | Apply
-[@@deriving sexp, compare]
+[@@deriving sexp, equal, compare]
 
 type term =
   | Boolean of bool
@@ -54,13 +54,19 @@ type term =
   | If of term * term * term
   | Abstract of int * term
   | Var of int
-[@@deriving sexp, compare]
+[@@deriving sexp, equal, compare]
 
 let parse_int (s : string) : int =
   (* Look up the index of each char of s in string_table *)
   let indexes = String.to_list s |> List.map ~f:(fun c -> Char.to_int c - 33) in
   (* Convert the indexes to a single integer as base 94 *)
   List.fold indexes ~init:0 ~f:(fun acc i -> (acc * 94) + i)
+
+let int_as_string (i : int) : string =
+  let rec get_digits i = if i = 0 then [] else (i mod 94) :: get_digits (i / 94) in
+  let digits = get_digits i in
+  let chars = List.map digits ~f:(fun i -> Char.of_int_exn (i + 33)) in
+  String.of_char_list (List.rev chars)
 
 let parse (input : string) : term =
   let tokens = String.split ~on:' ' input in
@@ -132,6 +138,7 @@ let parse (input : string) : term =
 
 let%test_unit "decode_string" = [%test_eq: string] (decode_string "}Q/2,$_") " World!"
 let%test_unit "parse_int" = [%test_eq: int] (parse_int "/6") 1337
+let%test_unit "int_as_string" = [%test_eq: string] (int_as_string 1337) "/6"
 
 let%test_unit "literals" =
   [%test_eq: term] (parse "T") (Boolean true);

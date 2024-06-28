@@ -8,4 +8,6 @@ let () =
   let input = String.strip input in
   match input.[0] with
   | 'S' ->
-      let output = Language.decode_token input in Printf.printf "%s\n" output | _ -> failwith "Not supported yet"
+      let output = Language.decode_token input in
+      Printf.printf "%s\n" output
+  | _ -> failwith "Not supported yet"
