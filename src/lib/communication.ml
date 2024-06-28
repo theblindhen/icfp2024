@@ -52,3 +52,10 @@ let get_scores game =
   match response with
   | String s -> parse_scores s
   | _ -> failwith "Invalid response"
+
+let submit_solution game sol =
+  let auth_token = Sys.getenv_exn "AUTH_TOKEN" in
+  let response = Lwt_main.run (get_body auth_token ("solve " ^ game ^ " " ^ sol)) in
+  match response with
+  | String s -> print_endline s
+  | _ -> failwith "Invalid response"

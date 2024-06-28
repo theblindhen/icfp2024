@@ -33,3 +33,9 @@
  (name scores)
  (modules scores)
  (libraries lib core))
+
+(executable
+ (public_name submit)
+ (name submit)
+ (modules submit)
+ (libraries lib core core_unix core_unix.sys_unix))
