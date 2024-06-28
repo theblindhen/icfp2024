@@ -26,7 +26,7 @@
  (public_name spaceship)
  (name spaceship)
  (modules spaceship)
- (libraries core))
+ (libraries core core_unix core_unix.sys_unix))
 
 (executable
  (public_name scores)
