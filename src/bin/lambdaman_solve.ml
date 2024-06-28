@@ -35,6 +35,9 @@ let find_positions grid =
   done;
   (!lambda_pos, !pills)
 
+(* Find manhattan distance between two points *)
+let manhattan_distance (x1, y1) (x2, y2) = abs (x1 - x2) + abs (y1 - y2)
+
 (* Shortest path between start and goal using A* *)
 let find_shortest_path grid start goal =
   (* Debug *)
@@ -42,7 +45,7 @@ let find_shortest_path grid start goal =
   let grid_height = Array.length grid in
   let problem : 'a t =
     {
-      cost = (fun (x1, y1) (x2, y2) -> abs (x1 - x2) + abs (y1 - y2));
+      cost = manhattan_distance;
       get_next_states =
         (fun (i, j) ->
           Array.fold directions ~init:[] ~f:(fun acc (di, dj, _) ->
@@ -87,7 +90,11 @@ let solve_traveling_lambdaman grid start pills =
     let next_pos = ref (-1) in
     let min_dist = ref Int.max_value in
     for i = 0 to n - 1 do
-      if (not visited.(i)) && i <> !current_pos then
+      if
+        (not visited.(i))
+        && i <> !current_pos
+        && manhattan_distance positions.(!current_pos) positions.(i) < !min_dist
+      then
         let p = find_shortest_path grid positions.(!current_pos) positions.(i) in
         if List.length p < !min_dist then (
           next_pos := i;
