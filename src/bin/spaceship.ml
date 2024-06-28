@@ -85,10 +85,12 @@ let create_solutions_dir map_dir level =
   | _ -> ()
 
 let write_solution map_dir level sol =
-  let score = score sol in
-  (* Check if solutions directory exists*)
   create_solutions_dir map_dir level;
-  Out_channel.write_all (solution_file map_dir level score) ~data:(String.of_char_list sol)
+  let score = score sol in
+  let solution_filename = solution_file map_dir level score in
+  match Sys_unix.file_exists solution_filename with
+  | `No -> Out_channel.write_all (solution_file map_dir level score) ~data:(String.of_char_list sol)
+  | _ -> ()
 
 let () =
   let map_dir, level =
