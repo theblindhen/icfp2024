@@ -50,15 +50,31 @@ let solve (problem : (int * int) list) =
         - Move towards it with both vx and vy between -1 and 1 (later: larger values)
         - Stop when we reach it (later: keep moving)
   *)
+  let vmax dist =
+    (*
+      How much can we speed up when there's distance d left, assuming we need
+      to slow down to a standstill before we get there?
+
+      Let's say we're considering whether to move at speed 3. Then we must go
+      3+2+1=6 steps before we're stopped. Taking that backwards, if we're at distance 6
+      from the target, we can speed up to 3.
+      Generally, d >= v + (v-1) + ... + 0 = v*(v+1)/2, so v <= sqrt(2d + 1/4) - 1/2.
+    *)
+    Float.to_int (Float.sqrt ((2. *. Float.of_int dist) +. 0.25) -. 0.5)
+  in
   let[@tail_mod_cons] rec step_to_point (distx, disty) (vx, vy) =
     (*let () = Printf.eprintf "dist: (%d, %d), vel: (%d, %d)\n" distx disty vx vy in*)
     if distx = 0 && disty = 0 && vx = 0 && vy = 0 then []
     else
-      let vx' = Sign.to_int (Int.sign distx) in
-      let vy' = Sign.to_int (Int.sign disty) in
-      let ax = vx' - vx in
-      let ay = vy' - vy in
-      move_of_direction (ax, ay) :: (step_to_point [@tailcall]) (distx - vx', disty - vy') (vx', vy')
+      (* Invariant: we're always going in the right direction and never too fast. *)
+      let signx = Int.sign distx in
+      let signy = Int.sign disty in
+      let vabsx' = Int.min (vmax (abs distx)) (abs vx + 1) in
+      let vabsy' = Int.min (vmax (abs disty)) (abs vx + 1) in
+      let vx' = Sign.to_int signx * vabsx' in
+      let vy' = Sign.to_int signy * vabsy' in
+      let move = move_of_direction (vx' - vx, vy' - vy) in
+      move :: (step_to_point [@tailcall]) (distx - vx', disty - vy') (vx', vy')
   in
   let[@tail_mod_cons] rec to_remaining_points (startx, starty) points =
     match closest_square (startx, starty) points with
@@ -85,10 +101,12 @@ let create_solutions_dir map_dir level =
   | _ -> ()
 
 let write_solution map_dir level sol =
-  let score = score sol in
-  (* Check if solutions directory exists*)
   create_solutions_dir map_dir level;
-  Out_channel.write_all (solution_file map_dir level score) ~data:(String.of_char_list sol)
+  let score = score sol in
+  let solution_filename = solution_file map_dir level score in
+  match Sys_unix.file_exists solution_filename with
+  | `No -> Out_channel.write_all (solution_file map_dir level score) ~data:(String.of_char_list sol)
+  | _ -> ()
 
 let () =
   let map_dir, level =
