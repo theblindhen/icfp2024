@@ -75,7 +75,7 @@ let solve (problem : (int * int) list) =
   in
   List.concat (to_remaining_points (0, 0) problem)
 
-let solutions_dir map_dir level = map_dir ^ "/solutions-" ^ level
+let solutions_dir map_dir level = map_dir ^ "/spaceship" ^ level
 let solution_file map_dir level score = solutions_dir map_dir level ^ "/" ^ Int.to_string score
 let score sol = List.length sol
 
