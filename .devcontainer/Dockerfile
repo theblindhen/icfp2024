@@ -33,7 +33,8 @@ RUN opam install -y ocaml-lsp-server ocamlformat
 RUN curl -L https://github.com/avh4/elm-format/releases/download/0.8.7/elm-format-0.8.7-linux-x64.tgz | tar -C ~/.opam/5.2.0/bin -xz
 
 # For Windows workaround. See readme.
-RUN mkdir "$HOME/warmup_build"
+RUN mkdir "$HOME/warmup_build" \
+ && mkdir "$HOME/src_build"
 
 # To persist bash history and sync it eagerly. Adapted from
 # https://code.visualstudio.com/remote/advancedcontainers/persist-bash-history

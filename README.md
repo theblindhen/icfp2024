@@ -61,9 +61,9 @@ VSCode should open a popup saying it forwarded port 3000 in the container. Click
 Inside the container, do this once:
 
 ```sh
-rm warmup/_build
+rm -rf warmup/_build src/_build
 ln -s ~/warmup_build warmup/_build
-# Something similar will be needed for the contest sources
+ln -s ~/src_build src/_build
 ```
 
 Set your git credentials and other personal git settings in a WSL2 shell. They
