@@ -79,21 +79,32 @@ let solve (problem : (int * int) list) =
     *)
     Float.to_int (Float.sqrt ((2. *. Float.of_int dist) +. 0.25) -. 0.5)
   in
-  let[@tail_mod_cons] rec step_to_point (distx, disty) (vx, vy) =
+  let rec step_to_point (distx, disty) (vx, vy) moves_rev =
     (*let () = Printf.eprintf "dist: (%d, %d), vel: (%d, %d)\n" distx disty vx vy in*)
-    if distx = 0 && disty = 0 && vx = 0 && vy = 0 then []
+    if distx = 0 && disty = 0 then (vx, vy, List.rev moves_rev)
     else
-      (* Invariant: we're always going in the right direction and never too fast. *)
       let signx = Int.sign distx in
       let signy = Int.sign disty in
-      let vabsx' = Int.min (max_stoppable_speed (abs distx)) (abs vx + 1) in
-      let vabsy' = Int.min (max_stoppable_speed (abs disty)) (abs vx + 1) in
-      let vx' = Sign.to_int signx * vabsx' in
-      let vy' = Sign.to_int signy * vabsy' in
+      let vx' =
+        if distx <> 0 && Sign.(signx <> Sign.of_int vx) then
+          (* We've overshot, and we have to go backwards *)
+          vx + Sign.to_int signx
+        else
+          (* Go forward as fast as possible *)
+          Sign.to_int signx * Int.min (max_stoppable_speed (abs distx)) (abs vx + 1)
+      in
+      let vy' =
+        if disty <> 0 && Sign.(signy <> Sign.of_int vy) then
+          (* We've overshot, and we have to go backwards *)
+          vy + Sign.to_int signy
+        else
+          (* Go forward as fast as possible *)
+          Sign.to_int signy * Int.min (max_stoppable_speed (abs disty)) (abs vy + 1)
+      in
       let move = move_of_direction (vx' - vx, vy' - vy) in
-      move :: (step_to_point [@tailcall]) (distx - vx', disty - vy') (vx', vy')
+      step_to_point (distx - vx', disty - vy') (vx', vy') (move :: moves_rev)
   in
-  let[@tail_mod_cons] rec to_remaining_points (startx, starty) points =
+  let[@tail_mod_cons] rec to_remaining_points (startx, starty, vx, vy) points =
     match closest_square (startx, starty) points with
     | None -> []
     | Some (endx, endy) ->
@@ -103,8 +114,8 @@ let solve (problem : (int * int) list) =
         in
         let distx = endx - startx in
         let disty = endy - starty in
-        let steps = step_to_point (distx, disty) (0, 0) in
-        steps :: (to_remaining_points [@tailcall]) (endx, endy) points
+        let vx, vy, steps = step_to_point (distx, disty) (vx, vy) [] in
+        steps :: (to_remaining_points [@tailcall]) (endx, endy, vx, vy) points
   in
   let point_set = Hash_set.Poly.of_list problem in
   (* MUTABLE: remaining points *)
@@ -149,7 +160,7 @@ let solve (problem : (int * int) list) =
   try List.concat (search_all_points (0, 0, 0, 0)) with
   | Gave_up_search ->
       Printf.eprintf "Falling back to simple solution\n%!";
-      List.concat (to_remaining_points (0, 0) problem)
+      List.concat (to_remaining_points (0, 0, 0, 0) problem)
 
 let simulate problem solution =
   let points_map = Hash_set.Poly.of_list problem in
