@@ -325,6 +325,11 @@ let rec step (state : state) =
           new_old_state with
           current_time = new_old_state.current_time;
           current_ticks = new_old_state.current_ticks;
+          snapshots =
+            (if replay_ticks = 0 then new_old_state.snapshots
+             else
+               (new_old_state.current_time, Array.copy_matrix new_old_state.grid)
+               :: new_old_state.snapshots);
         }
 
 and step_mult n state =
