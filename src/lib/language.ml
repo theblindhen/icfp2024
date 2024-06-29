@@ -50,6 +50,7 @@ type term =
   | If of term * term * term
   | Abstract of int * term
   | Var of int
+  | Thunk of term ref
 [@@deriving sexp, equal, compare]
 
 let big (i : int) = Bigint.of_int i
@@ -194,6 +195,60 @@ let rec deparse (prg : term) =
   | If (cond, then_, else_) -> "? " ^ deparse cond ^ " " ^ deparse then_ ^ " " ^ deparse else_
   | Abstract (var, body) -> "L" ^ deparse_int var ^ " " ^ deparse body
   | Var var -> "v" ^ deparse_int var
+  | Thunk t -> deparse !t
+
+let parens ctx_predence op_precedence str =
+  if ctx_predence <= op_precedence then "(" ^ str ^ ")" else str
+
+let rec pp_as_lambda ctx_precedence term =
+  match term with
+  | Boolean b -> if b then "true" else "false"
+  | Integer i -> Bigint.to_string_hum i
+  | String s -> "\"" ^ s ^ "\""
+  | Unary (op, t) ->
+      let op_str =
+        match op with
+        | Minus -> "-"
+        | Not -> "!"
+        | StringToInt -> "string_to_int"
+        | IntToString -> "int_to_string"
+      in
+      op_str ^ pp_as_lambda 1 t
+  | Binary (Apply, t1, t2) ->
+      let p = 5 in
+      parens ctx_precedence p (pp_as_lambda p t1 ^ " " ^ pp_as_lambda p t2)
+  | Binary (op, t1, t2) ->
+      let op_str, p =
+        match op with
+        | Add -> ("+", 15)
+        | Sub -> ("-", 15)
+        | Mul -> ("*", 10)
+        | Div -> ("/", 10)
+        | Mod -> ("%", 10)
+        | Less -> ("<", 20)
+        | Greater -> (">", 20)
+        | Equal -> ("=", 20)
+        | And -> ("&&", 25)
+        | Or -> ("||", 30)
+        | StringConcat -> ("^", 15)
+        | Take -> ("take", 5)
+        | Drop -> ("drop", 5)
+        | _ -> ("Not supported yet", 1)
+      in
+      parens ctx_precedence p (pp_as_lambda p t1 ^ " " ^ op_str ^ " " ^ pp_as_lambda p t2)
+  | If (cond, then_, else_) ->
+      "if "
+      ^ pp_as_lambda 50 cond
+      ^ " then "
+      ^ pp_as_lambda 50 then_
+      ^ " else "
+      ^ pp_as_lambda 50 else_
+      ^ " fi"
+  | Abstract (var, body) ->
+      let p = 50 in
+      parens ctx_precedence p ("\\v" ^ Int.to_string var ^ " -> " ^ pp_as_lambda p body)
+  | Var var -> "v" ^ Int.to_string var
+  | Thunk t -> "thunk(" ^ pp_as_lambda 50 !t ^ ")"
 
 (* TESTS *)
 let%test_unit "quo_rem" = [%test_eq: Bigint.t * Bigint.t] (quo_rem (big 10) (big 3)) (big 3, big 1)
