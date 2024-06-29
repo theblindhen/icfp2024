@@ -10,7 +10,11 @@ let () =
   let submit =
     match game with
     | "spaceship" -> fun sol -> Communication.submit_solution game sol
-    | "lambdaman" -> fun sol -> Communication.request_with_auth sol
+    | "lambdaman" -> (
+        fun sol ->
+          match Communication.request_with_auth sol with
+          | Language.String s -> print_endline s
+          | _ -> failwith "Invalid response")
     | _ -> failwith ("Unknown game: " ^ game)
   in
   Communication.get_scores game

@@ -23,10 +23,7 @@ let get_body auth_token input = get_body_of_token auth_token (Language.encode_st
 
 let request_with_auth token =
   let auth_token = Sys.getenv_exn "AUTH_TOKEN" in
-  let response = Lwt_main.run (get_body_of_token auth_token token) in
-  match response with
-  | String s -> print_endline s
-  | _ -> failwith "Invalid response"
+  Lwt_main.run (get_body_of_token auth_token token)
 
 (* Score utils *)
 let name = Re.compile Re.(seq [ str "["; group (rep1 alnum); str "]" ])
