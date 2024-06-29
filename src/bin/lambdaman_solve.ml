@@ -164,10 +164,6 @@ let () =
       [ ("pack", pack_sol); ("string", nonpack_sol); ("repeat", rep_sol) ]
       |> List.map ~f:(fun (name, sol) -> (name, sol, String.length sol))
     in
-    List.iter sols ~f:(fun (name, _, size) -> printf "%s yielded encoding of size %d\n" name size);
-    match List.min_elt sols ~compare:(fun (_, _, len1) (_, _, len2) -> Int.compare len1 len2) with
-    | Some (name, sol, size) ->
-        Solutions.write_solution "lambdaman" dir level sol;
-        printf "%s yielded shortest encoding (size: %d)\n" name size;
-        printf "\n"
-    | None -> failwith "No solution found"
+    List.iter sols ~f:(fun (name, sol, size) ->
+        printf "%s yielded encoding of size %d\n" name size;
+        Solutions.write_solution "lambdaman" dir level sol)

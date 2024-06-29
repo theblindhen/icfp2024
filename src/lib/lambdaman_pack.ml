@@ -65,7 +65,7 @@ let find_good_rep dirs =
     try
       for i = 1 to String.length dirs - 1 do
         if Char.equal dirs.[i] !curr_char then incr curr_len
-        else if !curr_len >= 20 then raise (Rep (i - !curr_len, !curr_len))
+        else if !curr_len >= 40 then raise (Rep (i - !curr_len, !curr_len))
         else (
           curr_char := dirs.[i];
           curr_len := 1)
@@ -75,20 +75,18 @@ let find_good_rep dirs =
     | Rep (i, len) -> Some (i, len)
 
 let encode_as_repeats dirs =
-  let min_length = 20 in
   let rec encode' repeat decode_dirs dirs =
     if String.length dirs = 0 then String ""
     else
-      let dir = dirs.[0] in
-      let n = String.take_while dirs ~f:(fun c -> Char.equal c dir) |> String.length in
-      if n > min_length then
-        concat_op
-          (app (app repeat (String (String.of_char dir))) (Integer (big n)))
-          (encode' repeat decode_dirs (String.drop_prefix dirs n))
-      else
-        concat_op
-          (app decode_dirs (Integer (encode_dirs (String.prefix dirs min_length))))
-          (encode' repeat decode_dirs (String.drop_prefix dirs min_length))
+      match find_good_rep dirs with
+      | Some (0, len) ->
+          concat_op
+            (app (app repeat (String (String.of_char dirs.[0]))) (Integer (big len)))
+            (encode' repeat decode_dirs (String.drop_prefix dirs len))
+      | Some (i, _) ->
+          let prefix = app decode_dirs (Integer (encode_dirs (String.prefix dirs i))) in
+          concat_op prefix (encode' repeat decode_dirs (String.drop_prefix dirs i))
+      | None -> app decode_dirs (Integer (encode_dirs dirs))
   in
   let_op repeat (fun repeat_f ->
       let_op decode_dirs (fun decode_dirs -> encode' repeat_f decode_dirs dirs))
