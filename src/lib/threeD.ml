@@ -292,15 +292,16 @@ let rec step (state : state) =
                 else return_value := Some i)
         | _ -> ());
 
-    match !timewarp with
-    | None ->
+    match (!return_value, !timewarp) with
+    | Some _, _
+    | None, None ->
         {
           state with
           current_time = state.current_time + 1;
           current_ticks = state.current_ticks + 1;
           return_value = !return_value;
         }
-    | Some (dt, warps) ->
+    | None, Some (dt, warps) ->
         (* apply timewarp *)
         let target_time = state.current_time - dt in
         let rewound_snapshots =
@@ -639,6 +640,31 @@ let%test_unit "timewarp does not fire immediately" =
     |> _init_state
   in
   assert_equal_grids state expected
+
+let%test_unit "timewarp loses to winning" =
+  let state =
+    "  . . . . . . .                                      \n"
+    ^ ". = . > 4 . .                                      \n"
+    ^ ". . . 2 @ 1 .                                      \n"
+    ^ ". v . . 1 . .                                      \n"
+    ^ ". 4 . . . . .                                      \n"
+    ^ "1 + S . . . .                                      \n"
+    ^ ". . . . . . .                                      \n"
+    |> _init_state
+    |> step
+  in
+  let expected =
+    "  . . . . . . .                                      \n"
+    ^ ". = . > 4 . .                                      \n"
+    ^ ". . . 2 @ 1 .                                      \n"
+    ^ ". v . . 1 . .                                      \n"
+    ^ ". . . . . . .                                      \n"
+    ^ ". + 5 . . . .                                      \n"
+    ^ ". 5 . . . . .                                      \n"
+    |> _init_state
+  in
+  assert_equal_grids state expected;
+  [%test_eq: Bigint.t option] state.return_value (Some (Bigint.of_int 5))
 
 let%test_unit "timewarp pure rewind" =
   let state =
