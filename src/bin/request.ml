@@ -21,6 +21,6 @@ let () =
   let response = Communication.request_with_auth token in
   match response with
   | String s -> print_endline s
-  | Integer i -> print_endline (Int.to_string i)
+  | Integer i -> print_endline (Bignum.to_string_hum i)
   | Boolean b -> print_endline (Bool.to_string b)
   | _ -> failwith "Nonliteral eval result"
