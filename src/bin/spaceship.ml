@@ -106,21 +106,18 @@ let solve (problem : (int * int) list) =
       let move = move_of_direction (vx' - vx, vy' - vy) in
       step_to_point (distx - vx', disty - vy') (vx', vy') (move :: moves_rev)
   in
-  let[@tail_mod_cons] rec to_remaining_points (startx, starty, vx, vy) points =
-    match closest_square (startx, starty) points with
+  (* MUTABLE: remaining points *)
+  let point_set = Hash_set.Poly.of_list problem in
+  let[@tail_mod_cons] rec to_remaining_points (startx, starty, vx, vy) =
+    match closest_square (startx, starty) (Hash_set.Poly.to_list point_set) with
     | None -> []
     | Some (endx, endy) ->
-        let points =
-          (* Remove the point we found from `points`. *)
-          List.filter points ~f:(Stdlib.( <> ) (endx, endy))
-        in
+        Hash_set.Poly.remove point_set (endx, endy);
         let distx = endx - startx in
         let disty = endy - starty in
         let vx, vy, steps = step_to_point (distx, disty) (vx, vy) [] in
-        steps :: (to_remaining_points [@tailcall]) (endx, endy, vx, vy) points
+        steps :: (to_remaining_points [@tailcall]) (endx, endy, vx, vy)
   in
-  let point_set = Hash_set.Poly.of_list problem in
-  (* MUTABLE: remaining points *)
   (* Alternative implementation: search the local neighborhood of moves.
      Consider all states we can get into by making `depth` moves and see if
      they happen to hit upon a point. *)
@@ -162,7 +159,8 @@ let solve (problem : (int * int) list) =
   try List.concat (search_all_points (0, 0, 0, 0)) with
   | Gave_up_search ->
       Printf.eprintf "Falling back to simple solution\n%!";
-      List.concat (to_remaining_points (0, 0, 0, 0) problem)
+      List.iter ~f:(Hash_set.Poly.add point_set) problem;
+      List.concat (to_remaining_points (0, 0, 0, 0))
 
 let simulate problem solution =
   let points_map = Hash_set.Poly.of_list problem in
