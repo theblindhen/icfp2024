@@ -67,7 +67,7 @@ let _grid_to_string (cell_to_string : int * int -> 'a -> string) (grid : 'a arra
         Array.foldi row ~init:"" ~f:(fun i acc cell ->
             acc ^ " " ^ String.make (col_widths.(i) - String.length cell) ' ' ^ cell))
   in
-  Array.fold rows ~init:"" ~f:(fun acc row -> acc ^ row ^ "\n\n")
+  Array.fold rows ~init:"" ~f:(fun acc row -> acc ^ row ^ "\n")
 
 let grid_to_string = _grid_to_string (fun _ c -> cell_to_string c)
 let parse_grid_to_string = _grid_to_string (fun _ c -> parse_cell_to_string c)
