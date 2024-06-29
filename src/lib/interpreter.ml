@@ -71,26 +71,26 @@ let rec eval_step (prg : Language.term) : term =
   | String s -> String s
   | Abstract (x, t) -> Abstract (x, t)
   | Var x -> Var x
-  | Unary (Minus, Integer i) -> Integer (-i)
+  | Unary (Minus, Integer i) -> Integer (Bigint.neg i)
   | Unary (Not, Boolean b) -> Boolean (not b)
-  | Unary (StringToInt, String s) -> Integer (encode_string s |> parse_int)
-  | Unary (IntToString, Integer i) -> String (deparse_int i |> decode_string)
+  | Unary (StringToInt, String s) -> Integer (encode_string s |> parse_big_int)
+  | Unary (IntToString, Integer i) -> String (deparse_big_int i |> decode_string)
   | Unary (op, t) -> Unary (op, eval_step t)
-  | Binary (Add, Integer i1, Integer i2) -> Integer (i1 + i2)
-  | Binary (Sub, Integer i1, Integer i2) -> Integer (i1 - i2)
-  | Binary (Mul, Integer i1, Integer i2) -> Integer (i1 * i2)
-  | Binary (Div, Integer i1, Integer i2) -> Integer (i1 / i2)
-  | Binary (Mod, Integer i1, Integer i2) -> Integer (Int.rem i1 i2)
-  | Binary (Less, Integer i1, Integer i2) -> Boolean (i1 < i2)
-  | Binary (Greater, Integer i1, Integer i2) -> Boolean (i1 > i2)
-  | Binary (Equal, Integer i1, Integer i2) -> Boolean (i1 = i2)
+  | Binary (Add, Integer i1, Integer i2) -> Integer (i1 ++ i2)
+  | Binary (Sub, Integer i1, Integer i2) -> Integer (i1 -- i2)
+  | Binary (Mul, Integer i1, Integer i2) -> Integer (i1 ** i2)
+  | Binary (Div, Integer i1, Integer i2) -> Integer (i1 // i2)
+  | Binary (Mod, Integer i1, Integer i2) -> Integer (snd (quo_rem i1 i2))
+  | Binary (Less, Integer i1, Integer i2) -> Boolean (Bigint.( < ) i1 i2)
+  | Binary (Greater, Integer i1, Integer i2) -> Boolean (Bigint.( > ) i1 i2)
+  | Binary (Equal, Integer i1, Integer i2) -> Boolean (Bigint.( = ) i1 i2)
   | Binary (Equal, String s1, String s2) -> Boolean (String.equal s1 s2)
   | Binary (Equal, Boolean b1, Boolean b2) -> Boolean (Stdlib.( = ) b1 b2)
   | Binary (And, Boolean b1, Boolean b2) -> Boolean (b1 && b2)
   | Binary (Or, Boolean b1, Boolean b2) -> Boolean (b1 || b2)
   | Binary (StringConcat, String s1, String s2) -> String (s1 ^ s2)
-  | Binary (Take, Integer i, String s) -> String (String.prefix s i)
-  | Binary (Drop, Integer i, String s) -> String (String.drop_prefix s i)
+  | Binary (Take, Integer i, String s) -> String (String.prefix s (small i))
+  | Binary (Drop, Integer i, String s) -> String (String.drop_prefix s (small i))
   | Binary (Apply, Abstract (x, t), v) -> subst t x v
   | Binary (Apply, t, v) -> Binary (Apply, eval_step t, v)
   | Binary (op (* not Apply *), t1, t2) -> Binary (op, eval_step t1, eval_step t2)
@@ -105,20 +105,40 @@ let eval (prg : term) : term =
   eval' prg
 
 let%test_unit "eval unop" =
-  [%test_result: term] (eval_step (Unary (Minus, Integer 1))) ~expect:(Integer (-1));
+  [%test_result: term] (eval_step (Unary (Minus, Integer (big 1)))) ~expect:(Integer (big (-1)));
   [%test_result: term] (eval_step (Unary (Not, Boolean true))) ~expect:(Boolean false);
-  [%test_result: term] (eval_step (Unary (StringToInt, String "test"))) ~expect:(Integer 15818151);
-  [%test_result: term] (eval_step (Unary (IntToString, Integer 15818151))) ~expect:(String "test")
+  [%test_result: term]
+    (eval_step (Unary (StringToInt, String "test")))
+    ~expect:(Integer (big 15818151));
+  [%test_result: term]
+    (eval_step (Unary (IntToString, Integer (big 15818151))))
+    ~expect:(String "test")
 
 let%test_unit "eval binop" =
-  [%test_result: term] (eval_step (Binary (Add, Integer 1, Integer 2))) ~expect:(Integer 3);
-  [%test_result: term] (eval_step (Binary (Sub, Integer 1, Integer 2))) ~expect:(Integer (-1));
-  [%test_result: term] (eval_step (Binary (Mul, Integer 1, Integer 2))) ~expect:(Integer 2);
-  [%test_result: term] (eval_step (Binary (Div, Integer (-7), Integer 2))) ~expect:(Integer (-3));
-  [%test_result: term] (eval_step (Binary (Mod, Integer (-7), Integer 2))) ~expect:(Integer (-1));
-  [%test_result: term] (eval_step (Binary (Less, Integer 1, Integer 2))) ~expect:(Boolean true);
-  [%test_result: term] (eval_step (Binary (Greater, Integer 1, Integer 2))) ~expect:(Boolean false);
-  [%test_result: term] (eval_step (Binary (Equal, Integer 1, Integer 2))) ~expect:(Boolean false);
+  [%test_result: term]
+    (eval_step (Binary (Add, Integer (big 1), Integer (big 2))))
+    ~expect:(Integer (big 3));
+  [%test_result: term]
+    (eval_step (Binary (Sub, Integer (big 1), Integer (big 2))))
+    ~expect:(Integer (big (-1)));
+  [%test_result: term]
+    (eval_step (Binary (Mul, Integer (big 1), Integer (big 2))))
+    ~expect:(Integer (big 2));
+  [%test_result: term]
+    (eval_step (Binary (Div, Integer (big (-7)), Integer (big 2))))
+    ~expect:(Integer (big (-3)));
+  [%test_result: term]
+    (eval_step (Binary (Mod, Integer (big (-7)), Integer (big 2))))
+    ~expect:(Integer (big (-1)));
+  [%test_result: term]
+    (eval_step (Binary (Less, Integer (big 1), Integer (big 2))))
+    ~expect:(Boolean true);
+  [%test_result: term]
+    (eval_step (Binary (Greater, Integer (big 1), Integer (big 2))))
+    ~expect:(Boolean false);
+  [%test_result: term]
+    (eval_step (Binary (Equal, Integer (big 1), Integer (big 2))))
+    ~expect:(Boolean false);
   [%test_result: term]
     (eval_step (Binary (And, Boolean true, Boolean false)))
     ~expect:(Boolean false);
@@ -126,9 +146,11 @@ let%test_unit "eval binop" =
   [%test_result: term]
     (eval_step (Binary (StringConcat, String "a", String "b")))
     ~expect:(String "ab");
-  [%test_result: term] (eval_step (Binary (Take, Integer 2, String "abcdef"))) ~expect:(String "ab");
   [%test_result: term]
-    (eval_step (Binary (Drop, Integer 2, String "abcdef")))
+    (eval_step (Binary (Take, Integer (big 2), String "abcdef")))
+    ~expect:(String "ab");
+  [%test_result: term]
+    (eval_step (Binary (Drop, Integer (big 2), String "abcdef")))
     ~expect:(String "cdef")
 
 let%test_unit "eval" =
@@ -138,10 +160,16 @@ let%test_unit "eval" =
     ~expect:(String "Hello World!");
   [%test_result: term]
     (eval (parse "B$ L# B$ L\" B+ v\" v\" B* I$ I# v8"))
-    ~expect:(Integer (parse_int "-"));
+    ~expect:(Integer (parse_big_int "-"));
   [%test_result: term]
     (eval
        (parse
           "B$ B$ L\" B$ L# B$ v\" B$ v# v# L# B$ v\" B$ v# v# L\" L# ? B= v# I! I\" B$ L$ B+ B$ \
            v\" v$ B$ v\" v$ B- v# I\" I%"))
-    ~expect:(Integer 16)
+    ~expect:(Integer (big 16));
+  [%test_result: term]
+    (eval (Binary (Add, Integer (big (-4570084165763281099)), Integer (big 4570084165763281100))))
+    ~expect:(Integer (big 1));
+  [%test_result: term]
+    (eval (Binary (Div, Integer (big 1), Integer (big 4))))
+    ~expect:(Integer (big 0))

@@ -43,7 +43,7 @@ type binop =
 
 type term =
   | Boolean of bool
-  | Integer of int
+  | Integer of Bigint.t
   | String of string
   | Unary of unop * term
   | Binary of binop * term * term
@@ -52,11 +52,29 @@ type term =
   | Var of int
 [@@deriving sexp, equal, compare]
 
+let big (i : int) = Bigint.of_int i
+let small (i : Bigint.t) = Bigint.to_int_exn i
+let ( ++ ) = Bigint.( + )
+let ( -- ) = Bigint.( - )
+let ( ** ) = Bigint.( * )
+let ( // ) = Bigint.( / )
+
+let quo_rem (a : Bigint.t) (b : Bigint.t) =
+  let quo = Bigint.( / ) a b in
+  let rem = a -- (b ** quo) in
+  (quo, rem)
+
 let parse_int (s : string) : int =
   (* Look up the index of each char of s in string_table *)
   let indexes = String.to_list s |> List.map ~f:(fun c -> Char.to_int c - 33) in
   (* Convert the indexes to a single integer as base 94 *)
   List.fold indexes ~init:0 ~f:(fun acc i -> (acc * 94) + i)
+
+let parse_big_int (s : string) : Bigint.t =
+  (* Look up the index of each char of s in string_table *)
+  let indexes = String.to_list s |> List.map ~f:(fun c -> Char.to_int c - 33) in
+  (* Convert the indexes to a single integer as base 94 *)
+  List.fold indexes ~init:Bigint.zero ~f:(fun acc i -> (acc ** big 94) ++ big i)
 
 let parse (input : string) : term =
   let tokens = String.split ~on:' ' input in
@@ -69,7 +87,7 @@ let parse (input : string) : term =
         match first_char with
         | 'T' -> (Boolean true, rest)
         | 'F' -> (Boolean false, rest)
-        | 'I' -> (Integer (parse_int body), rest)
+        | 'I' -> (Integer (parse_big_int body), rest)
         | 'S' -> (String (decode_string body), rest)
         | 'U' ->
             let operand, rest = get_term rest in
@@ -124,16 +142,24 @@ let parse (input : string) : term =
   assert (List.is_empty rest);
   term
 
-let deparse_int (i : int) : string =
-  let rec get_digits i = if i = 0 then [] else (i mod 94) :: get_digits (i / 94) in
+let deparse_big_int (i : Bigint.t) : string =
+  if Bigint.compare i (big 0) < 0 then failwith "Negative integers are not supported";
+  let rec get_digits i =
+    if Bigint.( = ) i (big 0) then []
+    else
+      let q, r = quo_rem i (big 94) in
+      small r :: get_digits q
+  in
   let digits = get_digits i in
   let chars = List.map digits ~f:(fun i -> Char.of_int_exn (i + 33)) in
   String.of_char_list (List.rev chars)
 
+let deparse_int (i : int) : string = deparse_big_int (big i)
+
 let rec deparse (prg : term) =
   match prg with
   | Boolean b -> if b then "T" else "F"
-  | Integer i -> "I" ^ deparse_int i
+  | Integer i -> "I" ^ deparse_big_int i
   | String s -> encode_string_token s
   | Unary (op, t) ->
       let op_str =
@@ -168,6 +194,7 @@ let rec deparse (prg : term) =
   | Var var -> "v" ^ deparse_int var
 
 (* TESTS *)
+let%test_unit "quo_rem" = [%test_eq: Bigint.t * Bigint.t] (quo_rem (big 10) (big 3)) (big 3, big 1)
 
 let%test_unit "encode_string" =
   [%test_eq: string] (encode_string "Hello World!") "B%,,/}Q/2,$_";
@@ -180,28 +207,30 @@ let%test_unit "deparse_int" = [%test_eq: string] (deparse_int 1337) "/6"
 let%test_unit "literals" =
   [%test_eq: term] (parse "T") (Boolean true);
   [%test_eq: term] (parse "F") (Boolean false);
-  [%test_eq: term] (parse "I/6") (Integer 1337);
+  [%test_eq: term] (parse "I/6") (Integer (big 1337));
   [%test_eq: term] (parse "SB%,,/") (String "Hello");
-  [%test_eq: term] (parse "U- I$") (Unary (Minus, Integer 3));
+  [%test_eq: term] (parse "U- I$") (Unary (Minus, Integer (big 3)));
   [%test_eq: term] (parse "U! T") (Unary (Not, Boolean true));
   [%test_eq: term] (parse "U# S4%34") (Unary (StringToInt, String "test"));
-  [%test_eq: term] (parse "U$ I4%34") (Unary (IntToString, Integer 15818151));
-  [%test_eq: term] (parse "B+ I# I$") (Binary (Add, Integer 2, Integer 3));
-  [%test_eq: term] (parse "B- I$ I#") (Binary (Sub, Integer 3, Integer 2));
-  [%test_eq: term] (parse "B* I$ I#") (Binary (Mul, Integer 3, Integer 2));
-  [%test_eq: term] (parse "B/ U- I( I#") (Binary (Div, Unary (Minus, Integer 7), Integer 2));
-  [%test_eq: term] (parse "B% U- I( I#") (Binary (Mod, Unary (Minus, Integer 7), Integer 2));
-  [%test_eq: term] (parse "B< I$ I#") (Binary (Less, Integer 3, Integer 2));
-  [%test_eq: term] (parse "B> I$ I#") (Binary (Greater, Integer 3, Integer 2));
-  [%test_eq: term] (parse "B= I$ I#") (Binary (Equal, Integer 3, Integer 2));
+  [%test_eq: term] (parse "U$ I4%34") (Unary (IntToString, Integer (big 15818151)));
+  [%test_eq: term] (parse "B+ I# I$") (Binary (Add, Integer (big 2), Integer (big 3)));
+  [%test_eq: term] (parse "B- I$ I#") (Binary (Sub, Integer (big 3), Integer (big 2)));
+  [%test_eq: term] (parse "B* I$ I#") (Binary (Mul, Integer (big 3), Integer (big 2)));
+  [%test_eq: term] (parse "B/ U- I( I#")
+    (Binary (Div, Unary (Minus, Integer (big 7)), Integer (big 2)));
+  [%test_eq: term] (parse "B% U- I( I#")
+    (Binary (Mod, Unary (Minus, Integer (big 7)), Integer (big 2)));
+  [%test_eq: term] (parse "B< I$ I#") (Binary (Less, Integer (big 3), Integer (big 2)));
+  [%test_eq: term] (parse "B> I$ I#") (Binary (Greater, Integer (big 3), Integer (big 2)));
+  [%test_eq: term] (parse "B= I$ I#") (Binary (Equal, Integer (big 3), Integer (big 2)));
   [%test_eq: term] (parse "B& T F") (Binary (And, Boolean true, Boolean false));
   [%test_eq: term] (parse "B| T F") (Binary (Or, Boolean true, Boolean false));
   [%test_eq: term] (parse "B. S4% S34") (Binary (StringConcat, String "te", String "st"));
-  [%test_eq: term] (parse "BT I$ S4%34") (Binary (Take, Integer 3, String "test"));
-  [%test_eq: term] (parse "BD I$ S4%34") (Binary (Drop, Integer 3, String "test"));
+  [%test_eq: term] (parse "BT I$ S4%34") (Binary (Take, Integer (big 3), String "test"));
+  [%test_eq: term] (parse "BD I$ S4%34") (Binary (Drop, Integer (big 3), String "test"));
   [%test_eq: term] (parse "? B> I# I$ S9%3 S./")
-    (If (Binary (Greater, Integer 2, Integer 3), String "yes", String "no"));
-  [%test_eq: term] (parse "L/6 I$") (Abstract (1337, Integer 3));
+    (If (Binary (Greater, Integer (big 2), Integer (big 3)), String "yes", String "no"));
+  [%test_eq: term] (parse "L/6 I$") (Abstract (1337, Integer (big 3)));
   [%test_eq: term] (parse "v/6") (Var 1337);
   [%test_eq: term]
     (parse "B$ B$ L# L$ v# B. SB%,,/ S}Q/2,$_ IK")
@@ -211,7 +240,7 @@ let%test_unit "literals" =
            ( Apply,
              Abstract (2, Abstract (3, Var 2)),
              Binary (StringConcat, String "Hello", String " World!") ),
-         Integer 42 ))
+         Integer (big 42) ))
 
 let%test_unit "deparse_int" = [%test_eq: string] (deparse_int 1337) "/6"
 
