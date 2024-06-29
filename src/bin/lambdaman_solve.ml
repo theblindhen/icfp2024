@@ -6,23 +6,6 @@ open Astar.Astar
 let directions = [| (0, 1, 'R'); (0, -1, 'L'); (1, 0, 'D'); (-1, 0, 'U') |]
 (* Define the type of the problem *)
 
-(* Read the grid from a file as a string array *)
-let read_grid filename =
-  let in_channel = In_channel.create filename in
-  let rec aux grid =
-    try
-      let line = In_channel.input_line_exn in_channel in
-      aux (line :: grid)
-    with
-    | End_of_file ->
-        In_channel.close in_channel;
-        List.rev grid
-  in
-  Array.of_list (aux [])
-
-(* Convert a grid to a char array array *)
-let to_char_array grid = Array.map ~f:String.to_array grid
-
 (* Find the starting position of Lambda-Man and the positions of all pills *)
 let find_positions grid =
   (* Debug *)
@@ -115,7 +98,7 @@ let flood_find_nearest_pill (grid : char array array) (start : int * int) : int 
 (* Find the shortest path to visit all pills using a greedy algorithm with A* *)
 let solve_traveling_lambdaman grid start pills =
   let path = ref [] in
-  let (* mut *) char_grid = to_char_array grid in
+  let (* mut *) char_grid = Util.to_char_array grid in
   let current_pos = ref start in
   for _ = 1 to List.length pills do
     let next_pos = flood_find_nearest_pill char_grid !current_pos in
@@ -143,7 +126,7 @@ let () =
     let dir = (Sys.get_argv ()).(1) in
     let level = (Sys.get_argv ()).(2) in
     let filename = dir ^ "/lambdaman" ^ level ^ ".txt" in
-    let grid = read_grid filename in
+    let grid = Util.read_grid filename in
     let lambda_pos, pills = find_positions grid in
     let path = solve_traveling_lambdaman grid lambda_pos pills in
     List.iter ~f:(printf "%c") path;
