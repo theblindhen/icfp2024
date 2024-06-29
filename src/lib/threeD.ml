@@ -31,22 +31,29 @@ type cell =
   | Literal of Bigint.t
   | Shift of shift_dir
   | Binop of binop
-  | Place of placeholder
   | Timewarp
+
+type parse_cell = Cell of cell | Place of placeholder
 
 let cell_to_string = function
   | Empty -> "."
   | Literal i -> Bigint.to_string_hum i
   | Shift d -> shift_dir_to_string d
   | Binop b -> binop_to_string b
-  | Place p -> placeholder_to_string p
   | Timewarp -> "@"
 
-type grid = cell array array
+let parse_cell_to_string = function
+  | Cell c -> cell_to_string c
+  | Place p -> placeholder_to_string p
 
-let grid_to_string (grid : grid) =
+type grid = cell array array
+type parse_grid = parse_cell array array
+
+let _grid_to_string (cell_to_string : int * int -> 'a -> string) (grid : 'a array array) =
   (* First map each cell to its string *)
-  let grid_strs = Array.map grid ~f:(fun row -> Array.map row ~f:cell_to_string) in
+  let grid_strs =
+    Array.mapi grid ~f:(fun y row -> Array.mapi row ~f:(fun x cell -> cell_to_string (x, y) cell))
+  in
   (* Then find the max width of each column *)
   let col_widths = Array.init (Array.length grid_strs.(0)) ~f:(fun _ -> 0) in
   for x = 0 to Array.length grid_strs.(0) - 1 do
@@ -60,17 +67,32 @@ let grid_to_string (grid : grid) =
         Array.foldi row ~init:"" ~f:(fun i acc cell ->
             acc ^ " " ^ String.make (col_widths.(i) - String.length cell) ' ' ^ cell))
   in
-  Array.fold rows ~init:"" ~f:(fun acc row -> acc ^ row ^ "\n\n")
+  Array.fold rows ~init:"" ~f:(fun acc row -> acc ^ row ^ "\n")
+
+let grid_to_string = _grid_to_string (fun _ c -> cell_to_string c)
+let parse_grid_to_string = _grid_to_string (fun _ c -> parse_cell_to_string c)
+
+let grid_to_string_with_s grid s_pos =
+  let s_set = Hash_set.Poly.create () in
+  List.iter s_pos ~f:(fun (x, y) -> Hash_set.add s_set (x, y));
+  _grid_to_string
+    (fun (x, y) c ->
+      match c with
+      | Empty -> if Hash_set.mem s_set (x, y) then "S" else cell_to_string c
+      | _ -> cell_to_string c)
+    grid
 
 type state = {
   grid : grid;
+  s_pos : (int * int) list;
   (* history : grid list; *)
   max_dims : int * int;
   current_time : int;
   current_ticks : int;
+  return_value : Bigint.t option;
 }
 
-let parse_grid (input : string) : grid =
+let parse_grid (input : string) : parse_grid =
   let rows = String.split_lines input |> List.map ~f:String.strip |> Array.of_list in
   let grid =
     Array.map rows ~f:(fun row ->
@@ -79,25 +101,25 @@ let parse_grid (input : string) : grid =
         in
         List.map tokens ~f:(fun token ->
             match token with
-            | "." -> Empty
-            | "@" -> Timewarp
-            | "<" -> Shift Left
-            | ">" -> Shift Right
-            | "^" -> Shift Up
-            | "v" -> Shift Down
-            | "+" -> Binop Plus
-            | "-" -> Binop Minus
-            | "=" -> Binop Equal
-            | "#" -> Binop NotEqual
-            | "*" -> Binop Mult
-            | "/" -> Binop Div
-            | "%" -> Binop Mod
+            | "." -> Cell Empty
+            | "@" -> Cell Timewarp
+            | "<" -> Cell (Shift Left)
+            | ">" -> Cell (Shift Right)
+            | "^" -> Cell (Shift Up)
+            | "v" -> Cell (Shift Down)
+            | "+" -> Cell (Binop Plus)
+            | "-" -> Cell (Binop Minus)
+            | "=" -> Cell (Binop Equal)
+            | "#" -> Cell (Binop NotEqual)
+            | "*" -> Cell (Binop Mult)
+            | "/" -> Cell (Binop Div)
+            | "%" -> Cell (Binop Mod)
             | "A" -> Place A
             | "B" -> Place B
             | "S" -> Place S
             | x -> (
                 (* try to get an int *)
-                try Literal (Bigint.of_string x) with
+                try Cell (Literal (Bigint.of_string x)) with
                 | _ -> failwith ("Invalid token: " ^ x)))
         |> Array.of_list)
   in
@@ -107,93 +129,140 @@ let parse_grid (input : string) : grid =
     failwith "All rows must be the same length";
   grid
 
-let init_state (input : string) =
-  let grid = parse_grid input in
+let apply_placeholders (parse_grid : parse_grid) (a : Bigint.t) (b : Bigint.t) =
+  let s_pos = ref [] in
+  let grid =
+    Array.mapi parse_grid ~f:(fun y row ->
+        Array.mapi row ~f:(fun x cell ->
+            match cell with
+            | Place A -> Literal a
+            | Place B -> Literal b
+            | Place S ->
+                s_pos := (x, y) :: !s_pos;
+                Empty
+            | Cell c -> c))
+  in
+  (grid, !s_pos)
+
+let init_state (input : string) (a : Bigint.t) (b : Bigint.t) =
+  let parse_grid = parse_grid input in
+  let grid, s_pos = apply_placeholders parse_grid a b in
   let max_dims = (Array.length grid.(0), Array.length grid) in
   let current_time = 0 in
   let current_ticks = 0 in
-  { grid; max_dims; current_time; current_ticks }
+  let return_value = None in
+  { grid; s_pos; max_dims; current_time; current_ticks; return_value }
+
+let dump_state (state : state) : string =
+  let time = sprintf "Time: %6d Ticks: %6d\n" state.current_time state.current_ticks in
+  let return_value =
+    match state.return_value with
+    | None -> ""
+    | Some v -> "Return value: " ^ Bigint.to_string_hum v ^ "\n"
+  in
+  time ^ return_value ^ grid_to_string_with_s state.grid state.s_pos
 
 let step (state : state) =
   (* make a hashmap of int*int -> new cell values *)
-  let actions = Hashtbl.Poly.create () in
-  let set_action pos cell =
-    (* printf "Setting action at (%d, %d) to %s\n" (fst pos) (snd pos) (cell_to_string cell); *)
-    match Hashtbl.find actions pos with
-    | None
-    | Some Empty ->
-        Hashtbl.set actions ~key:pos ~data:cell
-    | Some _ ->
-        if Stdlib.( = ) cell Empty then ()
-        else failwith "Multiple cells trying to occupy the same position"
-  in
-  let out_of_upper_left (x, y) = x < 0 || y < 0 in
-  let out_of_bounds (x, y) =
-    (* printf "Checking bounds (%d, %d)\n" x y; *)
-    out_of_upper_left (x, y) || x >= fst state.max_dims || y >= snd state.max_dims
-  in
-  Array.iteri state.grid ~f:(fun y row ->
-      Array.iteri row ~f:(fun x cell ->
-          let shift_check ~from ~to_ =
-            if out_of_bounds from || out_of_upper_left to_ then
-              (* printf "Out of bounds (%d, %d) to (%d, %d)\n" (fst from) (snd from) (fst to_)
-                 (snd to_); *)
-              ()
-            else if out_of_bounds to_ then raise (Failure "Not implemented: Grow the grid")
-            else
-              match state.grid.(snd from).(fst from) with
-              | Empty -> ()
-              | c ->
-                  set_action to_ c;
-                  set_action from Empty
-          in
-          match cell with
-          | Shift Right -> shift_check ~from:(x - 1, y) ~to_:(x + 1, y)
-          | Shift Left -> shift_check ~from:(x + 1, y) ~to_:(x - 1, y)
-          | Shift Up -> shift_check ~from:(x, y + 1) ~to_:(x, y - 1)
-          | Shift Down -> shift_check ~from:(x, y - 1) ~to_:(x, y + 1)
-          | Binop op -> (
-              if
-                (* printf "Binop at (%d, %d), bounds %d x %d\n" x y (fst state.max_dims)
-                   (snd state.max_dims); *)
-                out_of_upper_left (x - 1, y - 1)
-              then ()
+  if Stdlib.( <> ) state.return_value None then state
+  else
+    (* Find the actions *)
+    let actions = Hashtbl.Poly.create () in
+    let set_action pos cell =
+      (* printf "Setting action at (%d, %d) to %s\n" (fst pos) (snd pos) (cell_to_string cell); *)
+      match Hashtbl.find actions pos with
+      | None
+      | Some Empty ->
+          Hashtbl.set actions ~key:pos ~data:cell
+      | Some _ ->
+          if Stdlib.( = ) cell Empty then ()
+          else failwith "Multiple cells trying to occupy the same position"
+    in
+    let out_of_upper_left (x, y) = x < 0 || y < 0 in
+    let out_of_bounds (x, y) =
+      (* printf "Checking bounds (%d, %d)\n" x y; *)
+      out_of_upper_left (x, y) || x >= fst state.max_dims || y >= snd state.max_dims
+    in
+    Array.iteri state.grid ~f:(fun y row ->
+        Array.iteri row ~f:(fun x cell ->
+            let shift_check ~from ~to_ =
+              if out_of_bounds from || out_of_upper_left to_ then
+                (* printf "Out of bounds (%d, %d) to (%d, %d)\n" (fst from) (snd from) (fst to_)
+                   (snd to_); *)
+                ()
+              else if out_of_bounds to_ then raise (Failure "Not implemented: Grow the grid")
               else
-                match (state.grid.(y).(x - 1), state.grid.(y - 1).(x)) with
-                | Literal left, Literal above -> (
-                    let same r = (r, r) in
-                    let res_right_and_down =
-                      match op with
-                      | Plus -> Some (Literal Bigint.(left + above) |> same)
-                      | Minus -> Some (Literal Bigint.(left - above) |> same)
-                      | Mult -> Some (Literal Bigint.(left * above) |> same)
-                      | Div -> Some (Literal Bigint.(left / above) |> same)
-                      | Mod -> Some (Literal (Bigint.rem left above) |> same)
-                      | Equal -> if Bigint.(left = above) then Some (Literal left |> same) else None
-                      | NotEqual ->
-                          (* above goes right, and left goes down *)
-                          if Bigint.(left <> above) then Some (Literal above, Literal left)
-                          else None
-                    in
-                    match res_right_and_down with
-                    | None -> ()
-                    | Some (right, down) ->
-                        if out_of_bounds (x + 1, y + 1) then
-                          raise
-                            (Failure
-                               (sprintf "Not implemented: Grow the grid to (%d, %d) beyond (%d, %d)"
-                                  (x + 1) (y + 1) (fst state.max_dims) (snd state.max_dims)))
-                        else (
-                          set_action (x + 1, y) right;
-                          set_action (x, y + 1) down;
-                          set_action (x - 1, y) Empty;
-                          set_action (x, y - 1) Empty))
-                | _ -> ())
-          | _ -> () (* ignore other cells *)));
+                match state.grid.(snd from).(fst from) with
+                | Empty -> ()
+                | c ->
+                    set_action to_ c;
+                    set_action from Empty
+            in
+            match cell with
+            | Shift Right -> shift_check ~from:(x - 1, y) ~to_:(x + 1, y)
+            | Shift Left -> shift_check ~from:(x + 1, y) ~to_:(x - 1, y)
+            | Shift Up -> shift_check ~from:(x, y + 1) ~to_:(x, y - 1)
+            | Shift Down -> shift_check ~from:(x, y - 1) ~to_:(x, y + 1)
+            | Binop op -> (
+                if
+                  (* printf "Binop at (%d, %d), bounds %d x %d\n" x y (fst state.max_dims)
+                     (snd state.max_dims); *)
+                  out_of_upper_left (x - 1, y - 1)
+                then ()
+                else
+                  match (state.grid.(y).(x - 1), state.grid.(y - 1).(x)) with
+                  | Literal left, Literal above -> (
+                      let same r = (r, r) in
+                      let res_right_and_down =
+                        match op with
+                        | Plus -> Some (Literal Bigint.(left + above) |> same)
+                        | Minus -> Some (Literal Bigint.(left - above) |> same)
+                        | Mult -> Some (Literal Bigint.(left * above) |> same)
+                        | Div -> Some (Literal Bigint.(left / above) |> same)
+                        | Mod -> Some (Literal (Bigint.rem left above) |> same)
+                        | Equal ->
+                            if Bigint.(left = above) then Some (Literal left |> same) else None
+                        | NotEqual ->
+                            (* above goes right, and left goes down *)
+                            if Bigint.(left <> above) then Some (Literal above, Literal left)
+                            else None
+                      in
+                      match res_right_and_down with
+                      | None -> ()
+                      | Some (right, down) ->
+                          if out_of_bounds (x + 1, y + 1) then
+                            raise
+                              (Failure
+                                 (sprintf
+                                    "Not implemented: Grow the grid to (%d, %d) beyond (%d, %d)"
+                                    (x + 1) (y + 1) (fst state.max_dims) (snd state.max_dims)))
+                          else (
+                            set_action (x + 1, y) right;
+                            set_action (x, y + 1) down;
+                            set_action (x - 1, y) Empty;
+                            set_action (x, y - 1) Empty))
+                  | _ -> ())
+            | _ -> () (* ignore other cells *)));
 
-  (* apply the actions *)
-  Hashtbl.iteri actions ~f:(fun ~key:(x, y) ~data:cell -> state.grid.(y).(x) <- cell);
-  { state with current_time = state.current_time + 1 }
+    (* apply the actions *)
+    Hashtbl.iteri actions ~f:(fun ~key:(x, y) ~data:cell -> state.grid.(y).(x) <- cell);
+
+    (* Check for return values *)
+    let return_value = ref None in
+    List.iter state.s_pos ~f:(fun (x, y) ->
+        match state.grid.(y).(x) with
+        | Literal i -> (
+            match !return_value with
+            | None -> return_value := Some i
+            | Some v ->
+                if Bigint.(i <> v) then
+                  raise
+                    (Failure
+                       (sprintf "Multiple return values: %s and %s" (Bigint.to_string_hum i)
+                          (Bigint.to_string_hum v)))
+                else return_value := Some i)
+        | _ -> ());
+    { state with current_time = state.current_time + 1; return_value = !return_value }
 
 (* TESTS *)
 let assert_equal_grids (s1 : state) (s2 : state) =
@@ -203,34 +272,36 @@ let assert_equal_grids (s1 : state) (s2 : state) =
     eprintf "Grids not equal:\nGot:\n%s\nExpected:\n%s" grid1 grid2;
     failwith "Grids not equal")
 
+let _init_state input = init_state input (Bigint.of_int 88) (Bigint.of_int 99)
+
 let%test_unit "shift_left" =
-  let state = init_state ". < 1" |> step in
-  let expected = init_state "1 < ." in
+  let state = _init_state ". < 1" |> step in
+  let expected = _init_state "1 < ." in
   assert_equal_grids state expected
 
 let%test_unit "shift_left_overwrite" =
-  let state = init_state "+ < 1" |> step in
-  let expected = init_state "1 < ." in
+  let state = _init_state "+ < 1" |> step in
+  let expected = _init_state "1 < ." in
   assert_equal_grids state expected
 
 let%test_unit "shift_right" =
-  let state = init_state "1 > ." |> step in
-  let expected = init_state ". > 1" in
+  let state = _init_state "1 > ." |> step in
+  let expected = _init_state ". > 1" in
   assert_equal_grids state expected
 
 let%test_unit "two_way_shift" =
-  let state = init_state ". < 1 > ." |> step in
-  let expected = init_state "1 < . > 1" in
+  let state = _init_state ". < 1 > ." |> step in
+  let expected = _init_state "1 < . > 1" in
   assert_equal_grids state expected
 
 let%test_unit "train_left" =
-  let state = init_state ". < 1 < 2" |> step in
-  let expected = init_state "1 < 2 < ." in
+  let state = _init_state ". < 1 < 2" |> step in
+  let expected = _init_state "1 < 2 < ." in
   assert_equal_grids state expected
 
 let%test_unit "train_right" =
-  let state = init_state "1 > 2 > ." |> step in
-  let expected = init_state ". > 1 > 2" in
+  let state = _init_state "1 > 2 > ." |> step in
+  let expected = _init_state ". > 1 > 2" in
   assert_equal_grids state expected
 
 let%test_unit "shift_down" =
@@ -238,14 +309,14 @@ let%test_unit "shift_down" =
     "  1                                                  \n"
     ^ "v                                                  \n"
     ^ ".                                                  \n"
-    |> init_state
+    |> _init_state
     |> step
   in
   let expected =
     "  .                                                  \n"
     ^ "v                                                  \n"
     ^ "1                                                  \n"
-    |> init_state
+    |> _init_state
   in
   assert_equal_grids state expected
 
@@ -254,14 +325,14 @@ let%test_unit "shift_up" =
     "  .                                                  \n"
     ^ "^                                                  \n"
     ^ "1                                                  \n"
-    |> init_state
+    |> _init_state
     |> step
   in
   let expected =
     "  1                                                  \n"
     ^ "^                                                  \n"
     ^ ".                                                  \n"
-    |> init_state
+    |> _init_state
   in
   assert_equal_grids state expected
 
@@ -270,14 +341,14 @@ let%test_unit "add" =
     "  . 1 .                                               \n"
     ^ "2 + .                                               \n"
     ^ ". . .                                              \n"
-    |> init_state
+    |> _init_state
     |> step
   in
   let expected =
     "  . . .                                              \n"
     ^ ". + 3                                              \n"
     ^ ". 3 .                                              \n"
-    |> init_state
+    |> _init_state
   in
   assert_equal_grids state expected
 
@@ -286,14 +357,14 @@ let%test_unit "minus" =
     "  . 1 .                                               \n"
     ^ "3 - .                                               \n"
     ^ ". . .                                              \n"
-    |> init_state
+    |> _init_state
     |> step
   in
   let expected =
     "  . . .                                              \n"
     ^ ". - 2                                              \n"
     ^ ". 2 .                                              \n"
-    |> init_state
+    |> _init_state
   in
   assert_equal_grids state expected
 
@@ -302,14 +373,14 @@ let%test_unit "multiply" =
     "  . 2 .                                               \n"
     ^ "3 * .                                               \n"
     ^ ". . .                                              \n"
-    |> init_state
+    |> _init_state
     |> step
   in
   let expected =
     "  . . .                                              \n"
     ^ ". * 6                                              \n"
     ^ ". 6 .                                              \n"
-    |> init_state
+    |> _init_state
   in
   assert_equal_grids state expected
 
@@ -318,14 +389,14 @@ let%test_unit "division" =
     "  . 2 .                                               \n"
     ^ "3 / .                                               \n"
     ^ ". . .                                              \n"
-    |> init_state
+    |> _init_state
     |> step
   in
   let expected =
     "  . . .                                              \n"
     ^ ". / 1                                              \n"
     ^ ". 1 .                                              \n"
-    |> init_state
+    |> _init_state
   in
   assert_equal_grids state expected
 
@@ -334,14 +405,14 @@ let%test_unit "division_neg" =
     "   . 3 .                                               \n"
     ^ "-8 / .                                               \n"
     ^ " . . .                                               \n"
-    |> init_state
+    |> _init_state
     |> step
   in
   let expected =
     "  .  .  .                                              \n"
     ^ ".  / -2                                              \n"
     ^ ". -2  .                                              \n"
-    |> init_state
+    |> _init_state
   in
   assert_equal_grids state expected
 
@@ -350,14 +421,14 @@ let%test_unit "division_neg2" =
     "   . -3 .                                               \n"
     ^ " 8  / .                                               \n"
     ^ " .  . .                                               \n"
-    |> init_state
+    |> _init_state
     |> step
   in
   let expected =
     "  .  .  .                                              \n"
     ^ ".  / -2                                              \n"
     ^ ". -2  .                                              \n"
-    |> init_state
+    |> _init_state
   in
   assert_equal_grids state expected
 
@@ -366,14 +437,14 @@ let%test_unit "mod" =
     "   . 3 .                                               \n"
     ^ " 8 % .                                               \n"
     ^ " . . .                                               \n"
-    |> init_state
+    |> _init_state
     |> step
   in
   let expected =
     "  .  .  .                                              \n"
     ^ ".  %  2                                              \n"
     ^ ".  2  .                                              \n"
-    |> init_state
+    |> _init_state
   in
   assert_equal_grids state expected
 
@@ -382,14 +453,14 @@ let%test_unit "mod_neg" =
     "   . 3 .                                               \n"
     ^ "-8 % .                                               \n"
     ^ " . . .                                               \n"
-    |> init_state
+    |> _init_state
     |> step
   in
   let expected =
     "  .  .  .                                              \n"
     ^ ".  % -2                                              \n"
     ^ ". -2  .                                              \n"
-    |> init_state
+    |> _init_state
   in
   assert_equal_grids state expected
 
@@ -398,14 +469,14 @@ let%test_unit "mod_neg" =
     "   . -3 .                                               \n"
     ^ " 8  % .                                               \n"
     ^ " .  . .                                               \n"
-    |> init_state
+    |> _init_state
     |> step
   in
   let expected =
     "  .  .  .                                              \n"
     ^ ".  %  2                                              \n"
     ^ ".  2  .                                              \n"
-    |> init_state
+    |> _init_state
   in
   assert_equal_grids state expected
 
@@ -414,14 +485,14 @@ let%test_unit "eq_fires" =
     "   . 3 .                                               \n"
     ^ " 3 = .                                               \n"
     ^ " . . .                                               \n"
-    |> init_state
+    |> _init_state
     |> step
   in
   let expected =
     "  .  .  .                                              \n"
     ^ ".  =  3                                              \n"
     ^ ".  3  .                                              \n"
-    |> init_state
+    |> _init_state
   in
   assert_equal_grids state expected
 
@@ -430,14 +501,14 @@ let%test_unit "eq_unfired" =
     "   . 1 .                                               \n"
     ^ " 3 = .                                               \n"
     ^ " . . .                                               \n"
-    |> init_state
+    |> _init_state
     |> step
   in
   let expected =
     "  . 1 .                                              \n"
     ^ "3 = .                                              \n"
     ^ ". . .                                              \n"
-    |> init_state
+    |> _init_state
   in
   assert_equal_grids state expected
 
@@ -446,14 +517,14 @@ let%test_unit "neq_fired" =
     "   . 1 .                                               \n"
     ^ " 3 # .                                               \n"
     ^ " . . .                                               \n"
-    |> init_state
+    |> _init_state
     |> step
   in
   let expected =
     "  . . .                                              \n"
     ^ ". # 1                                              \n"
     ^ ". 3 .                                              \n"
-    |> init_state
+    |> _init_state
   in
   assert_equal_grids state expected
 
@@ -462,13 +533,13 @@ let%test_unit "neq_unfired" =
     "   . 3 .                                               \n"
     ^ " 3 # .                                               \n"
     ^ " . . .                                               \n"
-    |> init_state
+    |> _init_state
     |> step
   in
   let expected =
     "  . 3 .                                              \n"
     ^ "3 # .                                              \n"
     ^ ". . .                                              \n"
-    |> init_state
+    |> _init_state
   in
   assert_equal_grids state expected
