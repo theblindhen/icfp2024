@@ -137,12 +137,16 @@ let solve_traveling_lambdaman grid start pills =
 
 (* Main function *)
 let () =
-  if Array.length (Sys.get_argv ()) <> 2 then
-    printf "Usage: %s <input_file>\n" (Sys.get_argv ()).(0)
+  if Array.length (Sys.get_argv ()) <> 3 then
+    printf "Usage: %s <input_dir> <level>\n" (Sys.get_argv ()).(0)
   else
-    let filename = (Sys.get_argv ()).(1) in
+    let dir = (Sys.get_argv ()).(1) in
+    let level = (Sys.get_argv ()).(2) in
+    let filename = dir ^ "/lambdaman" ^ level ^ ".txt" in
     let grid = read_grid filename in
     let lambda_pos, pills = find_positions grid in
     let path = solve_traveling_lambdaman grid lambda_pos pills in
     List.iter ~f:(printf "%c") path;
+    Solutions.write_solution "lambdaman" dir level
+      (Language.encode_string_token ("solve lambdaman" ^ level ^ " " ^ String.of_char_list path));
     printf "\n"
