@@ -7,8 +7,6 @@ let string_table =
 let decode_string input = String.map input ~f:(fun c -> string_table.[Char.to_int c - 33])
 
 let decode_token input =
-  (* Trim whitespace from input *)
-  let input = String.strip input in
   match input.[0] with
   | 'S' ->
       (* Decode the string *)
@@ -21,10 +19,7 @@ let inverted_table =
   String.iteri string_table ~f:(fun i c -> table.(Char.to_int c) <- Char.of_int_exn (i + 33));
   table
 
-let encode_string input =
-  let input = String.strip input in
-  String.map input ~f:(fun c -> inverted_table.(Char.to_int c))
-
+let encode_string input = String.map input ~f:(fun c -> inverted_table.(Char.to_int c))
 let encode_string_token input = "S" ^ encode_string input
 
 type unop = Minus | Not | StringToInt | IntToString [@@deriving sexp, equal, compare]
@@ -62,12 +57,6 @@ let parse_int (s : string) : int =
   let indexes = String.to_list s |> List.map ~f:(fun c -> Char.to_int c - 33) in
   (* Convert the indexes to a single integer as base 94 *)
   List.fold indexes ~init:0 ~f:(fun acc i -> (acc * 94) + i)
-
-let int_as_string (i : int) : string =
-  let rec get_digits i = if i = 0 then [] else (i mod 94) :: get_digits (i / 94) in
-  let digits = get_digits i in
-  let chars = List.map digits ~f:(fun i -> Char.of_int_exn (i + 33)) in
-  String.of_char_list (List.rev chars)
 
 let parse (input : string) : term =
   let tokens = String.split ~on:' ' input in
@@ -135,11 +124,58 @@ let parse (input : string) : term =
   assert (List.is_empty rest);
   term
 
+let deparse_int (i : int) : string =
+  let rec get_digits i = if i = 0 then [] else (i mod 94) :: get_digits (i / 94) in
+  let digits = get_digits i in
+  let chars = List.map digits ~f:(fun i -> Char.of_int_exn (i + 33)) in
+  String.of_char_list (List.rev chars)
+
+let rec deparse (prg : term) =
+  match prg with
+  | Boolean b -> if b then "T" else "F"
+  | Integer i -> "I" ^ deparse_int i
+  | String s -> encode_string_token s
+  | Unary (op, t) ->
+      let op_str =
+        match op with
+        | Minus -> "U-"
+        | Not -> "U!"
+        | StringToInt -> "U#"
+        | IntToString -> "U$"
+      in
+      op_str ^ " " ^ deparse t
+  | Binary (op, t1, t2) ->
+      let op_str =
+        match op with
+        | Add -> "B+"
+        | Sub -> "B-"
+        | Mul -> "B*"
+        | Div -> "B/"
+        | Mod -> "B%"
+        | Less -> "B<"
+        | Greater -> "B>"
+        | Equal -> "B="
+        | And -> "B&"
+        | Or -> "B|"
+        | StringConcat -> "B."
+        | Take -> "BT"
+        | Drop -> "BD"
+        | Apply -> "B$"
+      in
+      op_str ^ " " ^ deparse t1 ^ " " ^ deparse t2
+  | If (cond, then_, else_) -> "? " ^ deparse cond ^ " " ^ deparse then_ ^ " " ^ deparse else_
+  | Abstract (var, body) -> "L" ^ deparse_int var ^ " " ^ deparse body
+  | Var var -> "v" ^ deparse_int var
+
 (* TESTS *)
+
+let%test_unit "encode_string" =
+  [%test_eq: string] (encode_string "Hello World!") "B%,,/}Q/2,$_";
+  [%test_eq: string] (encode_string " World!") "}Q/2,$_"
 
 let%test_unit "decode_string" = [%test_eq: string] (decode_string "}Q/2,$_") " World!"
 let%test_unit "parse_int" = [%test_eq: int] (parse_int "/6") 1337
-let%test_unit "int_as_string" = [%test_eq: string] (int_as_string 1337) "/6"
+let%test_unit "deparse_int" = [%test_eq: string] (deparse_int 1337) "/6"
 
 let%test_unit "literals" =
   [%test_eq: term] (parse "T") (Boolean true);
@@ -176,3 +212,41 @@ let%test_unit "literals" =
              Abstract (2, Abstract (3, Var 2)),
              Binary (StringConcat, String "Hello", String " World!") ),
          Integer 42 ))
+
+let%test_unit "deparse_int" = [%test_eq: string] (deparse_int 1337) "/6"
+
+let%test_unit "deparse" =
+  [%test_eq: string] (parse "T" |> deparse) "T";
+  [%test_eq: string] (parse "F" |> deparse) "F";
+  [%test_eq: string] (parse "I/6" |> deparse) "I/6";
+  [%test_eq: string] (parse "SB%,,/" |> deparse) "SB%,,/";
+  [%test_eq: string] (parse "U- I$" |> deparse) "U- I$";
+  [%test_eq: string] (parse "U! T" |> deparse) "U! T";
+  [%test_eq: string] (parse "U# S4%34" |> deparse) "U# S4%34";
+  [%test_eq: string] (parse "U$ I4%34" |> deparse) "U$ I4%34";
+  [%test_eq: string] (parse "B+ I# I$" |> deparse) "B+ I# I$";
+  [%test_eq: string] (parse "B- I$ I#" |> deparse) "B- I$ I#";
+  [%test_eq: string] (parse "B* I$ I#" |> deparse) "B* I$ I#";
+  [%test_eq: string] (parse "B/ U- I( I#" |> deparse) "B/ U- I( I#";
+  [%test_eq: string] (parse "B% U- I( I#" |> deparse) "B% U- I( I#";
+  [%test_eq: string] (parse "B< I$ I#" |> deparse) "B< I$ I#";
+  [%test_eq: string] (parse "B> I$ I#" |> deparse) "B> I$ I#";
+  [%test_eq: string] (parse "B= I$ I#" |> deparse) "B= I$ I#";
+  [%test_eq: string] (parse "B& T F" |> deparse) "B& T F";
+  [%test_eq: string] (parse "B| T F" |> deparse) "B| T F";
+  [%test_eq: string] (parse "B. S4% S34" |> deparse) "B. S4% S34";
+  [%test_eq: string] (parse "BT I$ S4%34" |> deparse) "BT I$ S4%34";
+  [%test_eq: string] (parse "BD I$ S4%34" |> deparse) "BD I$ S4%34";
+  [%test_eq: string] (parse "? B> I# I$ S9%3 S./" |> deparse) "? B> I# I$ S9%3 S./";
+  [%test_eq: string] (parse "L/6 I$" |> deparse) "L/6 I$";
+  [%test_eq: string] (parse "v/6" |> deparse) "v/6";
+  [%test_eq: string]
+    (parse "B$ B$ L# L$ v# B. SB%,,/ S}Q/2,$_ IK" |> deparse)
+    "B$ B$ L# L$ v# B. SB%,,/ S}Q/2,$_ IK";
+  [%test_eq: string]
+    (parse
+       ("B$ B$ L\" B$ L\" B$ L# B$ v\" B$ v# v# L# B$ v\" B$ v# v# L$ L# ? "
+      ^ "B= v# I\" v\" B. v\" B$ v$ B- v# I\" SL I#,")
+    |> deparse)
+    ("B$ B$ L\" B$ L\" B$ L# B$ v\" B$ v# v# L# B$ v\" B$ v# v# L$ L# ? "
+   ^ "B= v# I\" v\" B. v\" B$ v$ B- v# I\" SL I#,")
