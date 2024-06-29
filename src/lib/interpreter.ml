@@ -166,4 +166,10 @@ let%test_unit "eval" =
        (parse
           "B$ B$ L\" B$ L# B$ v\" B$ v# v# L# B$ v\" B$ v# v# L\" L# ? B= v# I! I\" B$ L$ B+ B$ \
            v\" v$ B$ v\" v$ B- v# I\" I%"))
-    ~expect:(Integer (big 16))
+    ~expect:(Integer (big 16));
+  [%test_result: term]
+    (eval (Binary (Add, Integer (big (-4570084165763281099)), Integer (big 4570084165763281100))))
+    ~expect:(Integer (big 1));
+  [%test_result: term]
+    (eval (Binary (Div, Integer (big 1), Integer (big 4))))
+    ~expect:(Integer (big 0))
