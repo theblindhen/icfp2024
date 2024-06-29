@@ -144,15 +144,17 @@ let parse (input : string) : term =
 
 let deparse_big_int (i : Bigint.t) : string =
   if Bigint.compare i (big 0) < 0 then failwith "Negative integers are not supported";
-  let rec get_digits i =
-    if Bigint.( = ) i (big 0) then []
-    else
-      let q, r = quo_rem i (big 94) in
-      small r :: get_digits q
-  in
-  let digits = get_digits i in
-  let chars = List.map digits ~f:(fun i -> Char.of_int_exn (i + 33)) in
-  String.of_char_list (List.rev chars)
+  if Bigint.compare i (big 0) = 0 then "!"
+  else
+    let rec get_digits i =
+      if Bigint.( = ) i (big 0) then []
+      else
+        let q, r = quo_rem i (big 94) in
+        small r :: get_digits q
+    in
+    let digits = get_digits i in
+    let chars = List.map digits ~f:(fun i -> Char.of_int_exn (i + 33)) in
+    String.of_char_list (List.rev chars)
 
 let deparse_int (i : int) : string = deparse_big_int (big i)
 
@@ -242,6 +244,7 @@ let%test_unit "literals" =
              Binary (StringConcat, String "Hello", String " World!") ),
          Integer (big 42) ))
 
+let%test_unit "deparse_int" = [%test_eq: string] (deparse_int 0) "!"
 let%test_unit "deparse_int" = [%test_eq: string] (deparse_int 1337) "/6"
 
 let%test_unit "deparse" =
