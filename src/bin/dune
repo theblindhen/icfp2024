@@ -5,6 +5,12 @@
  (libraries lib core))
 
 (executable
+ (public_name decode21)
+ (name decode21)
+ (modules decode21)
+ (libraries lib core))
+
+(executable
  (public_name encode)
  (name encode)
  (modules encode)
