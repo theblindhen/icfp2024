@@ -81,7 +81,7 @@ let is_value term =
   | If _ -> false
   | Thunk _ -> false
 
-let thunking_enabled = false
+let thunking_enabled = true
 
 let rec eval_step (prg : Language.term) : term =
   match prg with
@@ -126,14 +126,61 @@ let rec eval_step (prg : Language.term) : term =
         t := v;
         Thunk t
 
+(* evaluates a term to a value directly *)
+let rec eval_big_step (prg : Language.term) : term =
+  match prg with
+  | Boolean b -> Boolean b
+  | Integer i -> Integer i
+  | String s -> String s
+  | Abstract (x, t) -> Abstract (x, t)
+  | Var x -> Var x
+  | Unary (op, t) -> (
+      match (op, eval_big_step t) with
+      | Minus, Integer i -> Integer (Bigint.neg i)
+      | Not, Boolean b -> Boolean (not b)
+      | StringToInt, String s -> Integer (encode_string s |> parse_big_int)
+      | IntToString, Integer i -> String (deparse_big_int i |> decode_string)
+      | _ -> failwith "Unexpected unary operand")
+  | Binary (Apply, t, v) -> (
+      match eval_big_step t with
+      | Abstract (x, body) -> eval_big_step (subst body x (if is_value v then v else Thunk (ref v)))
+      | _ -> failwith "Unexpected Apply operand")
+  | Binary (op, t1, t2) -> (
+      match (op, eval_big_step t1, eval_big_step t2) with
+      | Add, Integer i1, Integer i2 -> Integer (i1 ++ i2)
+      | Sub, Integer i1, Integer i2 -> Integer (i1 -- i2)
+      | Mul, Integer i1, Integer i2 -> Integer (i1 ** i2)
+      | Div, Integer i1, Integer i2 -> Integer (i1 // i2)
+      | Mod, Integer i1, Integer i2 -> Integer (snd (quo_rem i1 i2))
+      | Less, Integer i1, Integer i2 -> Boolean (Bigint.( < ) i1 i2)
+      | Greater, Integer i1, Integer i2 -> Boolean (Bigint.( > ) i1 i2)
+      | Equal, Integer i1, Integer i2 -> Boolean (Bigint.( = ) i1 i2)
+      | Equal, String s1, String s2 -> Boolean (String.equal s1 s2)
+      | Equal, Boolean b1, Boolean b2 -> Boolean (Stdlib.( = ) b1 b2)
+      | And, Boolean b1, Boolean b2 -> Boolean (b1 && b2)
+      | Or, Boolean b1, Boolean b2 -> Boolean (b1 || b2)
+      | StringConcat, String s1, String s2 -> String (s1 ^ s2)
+      | Take, Integer i, String s -> String (String.prefix s (small i))
+      | Drop, Integer i, String s -> String (String.drop_prefix s (small i))
+      | _ -> failwith "Unexpected binary operand")
+  | If (cond, t1, t2) -> (
+      match eval_big_step cond with
+      | Boolean b -> if b then eval_big_step t1 else eval_big_step t2
+      | _ -> failwith "Unexpected if operand")
+  | Thunk t ->
+      if is_value !t then !t
+      else
+        let v = eval_big_step !t in
+        t := v;
+        v
+
 let eval (prg : term) : term =
+  printf "%s\n%!" (pp_as_lambda 50 prg);
   let rec eval' (prg : term) : term =
     let prg' = eval_step prg in
-    match thunking_enabled with
-    | true -> if is_value prg' then prg' else eval' prg'
-    | false -> if equal_term prg prg' then prg' else eval' prg'
+    if equal_term prg prg' then prg' else eval' prg'
   in
-  eval' prg
+  if thunking_enabled then eval_big_step prg else eval' prg
 
 let%test_unit "eval unop" =
   [%test_result: term] (eval_step (Unary (Minus, Integer (big 1)))) ~expect:(Integer (big (-1)));

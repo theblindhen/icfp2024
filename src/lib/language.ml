@@ -231,7 +231,9 @@ let rec pp_as_lambda ctx_precedence term =
         | And -> ("&&", 25)
         | Or -> ("||", 30)
         | StringConcat -> ("^", 15)
-        | _ -> failwith "Not supported yet"
+        | Take -> ("take", 5)
+        | Drop -> ("drop", 5)
+        | _ -> ("Not supported yet", 1)
       in
       parens ctx_precedence p (pp_as_lambda p t1 ^ " " ^ op_str ^ " " ^ pp_as_lambda p t2)
   | If (cond, then_, else_) ->
