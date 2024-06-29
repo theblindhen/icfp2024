@@ -108,16 +108,7 @@ let solve (problem : (int * int) list) =
   in
   (* MUTABLE: remaining points *)
   let point_set = Hash_set.Poly.of_list problem in
-  let[@tail_mod_cons] rec to_remaining_points (startx, starty, vx, vy) =
-    match closest_square (startx, starty) (Hash_set.Poly.to_list point_set) with
-    | None -> []
-    | Some (endx, endy) ->
-        Hash_set.Poly.remove point_set (endx, endy);
-        let distx = endx - startx in
-        let disty = endy - starty in
-        let vx, vy, steps = step_to_point (distx, disty) (vx, vy) [] in
-        steps :: (to_remaining_points [@tailcall]) (endx, endy, vx, vy)
-  in
+  Hash_set.Poly.remove point_set (0, 0);
   (* Alternative implementation: search the local neighborhood of moves.
      Consider all states we can get into by making `depth` moves and see if
      they happen to hit upon a point. *)
@@ -149,6 +140,16 @@ let solve (problem : (int * int) list) =
       | Some (state, moves) -> Some (state, List.rev moves)
       | None -> search_one_point ~depth:(depth - 1) frontier
   in
+  let[@tail_mod_cons] rec to_remaining_points (startx, starty, vx, vy) =
+    match closest_square (startx, starty) (Hash_set.Poly.to_list point_set) with
+    | None -> []
+    | Some (endx, endy) ->
+        Hash_set.Poly.remove point_set (endx, endy);
+        let distx = endx - startx in
+        let disty = endy - starty in
+        let vx, vy, steps = step_to_point (distx, disty) (vx, vy) [] in
+        steps :: (to_remaining_points [@tailcall]) (endx, endy, vx, vy)
+  in
   let[@tail_mod_cons] rec search_all_points (state : state) =
     match search_one_point ~depth:7 [ (state, []) ] with
     | None -> raise Gave_up_search
@@ -163,8 +164,8 @@ let solve (problem : (int * int) list) =
       List.concat (to_remaining_points (0, 0, 0, 0))
 
 let simulate problem solution =
-  let points_map = Hash_set.Poly.of_list problem in
-  Hash_set.Poly.remove points_map (0, 0);
+  let point_set = Hash_set.Poly.of_list problem in
+  Hash_set.Poly.remove point_set (0, 0);
   let _, _, max_speed =
     List.fold solution
       ~init:((0, 0), (0, 0), 0)
@@ -175,10 +176,10 @@ let simulate problem solution =
         let max_speed = Int.max max_speed (Int.max (abs dx) (abs dy)) in
         let x = x + dx in
         let y = y + dy in
-        Hash_set.Poly.remove points_map (x, y);
+        Hash_set.Poly.remove point_set (x, y);
         ((x, y), (dx, dy), max_speed))
   in
-  match Hash_set.Poly.to_list points_map with
+  match Hash_set.Poly.to_list point_set with
   | [] ->
       Printf.eprintf "Max speed: %d\n%!" max_speed;
       Printf.eprintf "Length (score): %d\n%!" (List.length solution)
