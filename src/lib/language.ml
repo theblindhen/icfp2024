@@ -242,4 +242,11 @@ let%test_unit "deparse" =
   [%test_eq: string] (parse "v/6" |> deparse) "v/6";
   [%test_eq: string]
     (parse "B$ B$ L# L$ v# B. SB%,,/ S}Q/2,$_ IK" |> deparse)
-    "B$ B$ L# L$ v# B. SB%,,/ S}Q/2,$_ IK"
+    "B$ B$ L# L$ v# B. SB%,,/ S}Q/2,$_ IK";
+  [%test_eq: string]
+    (parse
+       ("B$ B$ L\" B$ L\" B$ L# B$ v\" B$ v# v# L# B$ v\" B$ v# v# L$ L# ? "
+      ^ "B= v# I\" v\" B. v\" B$ v$ B- v# I\" SL I#,")
+    |> deparse)
+    ("B$ B$ L\" B$ L\" B$ L# B$ v\" B$ v# v# L# B$ v\" B$ v# v# L$ L# ? "
+   ^ "B= v# I\" v\" B. v\" B$ v$ B- v# I\" SL I#,")
