@@ -21,14 +21,15 @@ let () =
   |> List.iter ~f:(fun (name, our, best) ->
          match Solutions.best_sol dir name with
          | Some (best_local_score, best_local_file, sol) ->
-             let local_better =
+             let prev_desc, local_better =
                match our with
-               | Some our -> best_local_score < our
-               | None -> true
+               | Some our ->
+                   ("our previous score was: " ^ Int.to_string our ^ "; ", best_local_score < our)
+               | None -> ("this is our first solution; ", true)
              in
              if local_better then (
-               printf "Submitting solution for %s with score %d (best score is %d)\n" name
-                 best_local_score best;
+               printf "Submitting solution for %s with score %d (%sbest score is %d)\n" name
+                 best_local_score prev_desc best;
                submit name sol;
                Core_unix.fork_exec ~prog:"git" ~argv:[ "git"; "add"; best_local_file ] () |> ignore)
          | None -> ())

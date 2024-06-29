@@ -150,10 +150,15 @@ let () =
     let sol_str = String.of_char_list path in
     let sol_int = Lambdaman_pack.encode_dirs sol_str in
     let prefix = "solve lambdaman" ^ level ^ " " in
-    let sol =
-      Metalanguage.(concat_op (String prefix) (app Lambdaman_pack.decode_dirs (Integer sol_int)))
+    let pack_sol =
+      Language.deparse
+        Metalanguage.(concat_op (String prefix) (app Lambdaman_pack.decode_dirs (Integer sol_int)))
     in
-    (* Solutions.write_solution "lambdaman" dir level
-       (Language.encode_string_token (prefix ^ String.of_char_list path)); *)
-    Solutions.write_solution "lambdaman" dir level (Language.deparse sol);
+    let nonpack_sol = Language.encode_string_token (prefix ^ String.of_char_list path) in
+    let sol =
+      if String.length pack_sol < String.length nonpack_sol then pack_sol else nonpack_sol
+    in
+    Solutions.write_solution "lambdaman" dir level sol;
+    printf "\n";
+    printf "%s\n" sol;
     printf "\n"
