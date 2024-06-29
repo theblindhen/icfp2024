@@ -2,6 +2,7 @@ open Core
 open Language
 open Metalanguage
 open Interpreter
+open Util
 
 let decode_dir =
   abs (fun dir ->

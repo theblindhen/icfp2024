@@ -1,5 +1,6 @@
 open Core
 open Language
+open Util
 
 (** Is the variable free in the term *)
 let is_free (var : int) (prg : term) : bool =

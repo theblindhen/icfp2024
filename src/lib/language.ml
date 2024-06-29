@@ -1,4 +1,5 @@
 open Core
+open Util
 
 let string_table =
   "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!"
@@ -52,18 +53,6 @@ type term =
   | Var of int
   | Thunk of term ref
 [@@deriving sexp, equal, compare]
-
-let big (i : int) = Bigint.of_int i
-let small (i : Bigint.t) = Bigint.to_int_exn i
-let ( ++ ) = Bigint.( + )
-let ( -- ) = Bigint.( - )
-let ( ** ) = Bigint.( * )
-let ( // ) = Bigint.( / )
-
-let quo_rem (a : Bigint.t) (b : Bigint.t) =
-  let quo = Bigint.( / ) a b in
-  let rem = a -- (b ** quo) in
-  (quo, rem)
 
 let parse_int (s : string) : int =
   (* Look up the index of each char of s in string_table *)

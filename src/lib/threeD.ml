@@ -1,4 +1,5 @@
 open Core
+open Util
 
 type binop = Plus | Minus | Equal | NotEqual | Mult | Div | Mod
 
@@ -85,7 +86,7 @@ let grid_to_string_with_s grid s_pos =
 type state = {
   grid : grid;
   s_pos : (int * int) list;
-  (* history : grid list; *)
+  snapshots : (int * grid) list;
   max_dims : int * int;
   current_time : int;
   current_ticks : int;
@@ -148,10 +149,11 @@ let init_state (input : string) (a : Bigint.t) (b : Bigint.t) =
   let parse_grid = parse_grid input in
   let grid, s_pos = apply_placeholders parse_grid a b in
   let max_dims = (Array.length grid.(0), Array.length grid) in
+  let snapshots = [ (0, Array.copy_matrix grid) ] in
   let current_time = 0 in
   let current_ticks = 0 in
   let return_value = None in
-  { grid; s_pos; max_dims; current_time; current_ticks; return_value }
+  { grid; s_pos; snapshots; max_dims; current_time; current_ticks; return_value }
 
 let dump_state (state : state) : string =
   let time = sprintf "Time: %6d Ticks: %6d\n" state.current_time state.current_ticks in
@@ -162,12 +164,13 @@ let dump_state (state : state) : string =
   in
   time ^ return_value ^ grid_to_string_with_s state.grid state.s_pos
 
-let step (state : state) =
+let rec step (state : state) =
   (* make a hashmap of int*int -> new cell values *)
   if Stdlib.( <> ) state.return_value None then state
   else
     (* Find the actions *)
     let actions = Hashtbl.Poly.create () in
+    let timewarp = ref None in
     let set_action pos cell =
       (* printf "Setting action at (%d, %d) to %s\n" (fst pos) (snd pos) (cell_to_string cell); *)
       match Hashtbl.find actions pos with
@@ -199,6 +202,9 @@ let step (state : state) =
                     set_action from Empty
             in
             match cell with
+            | Empty
+            | Literal _ ->
+                ()
             | Shift Right -> shift_check ~from:(x - 1, y) ~to_:(x + 1, y)
             | Shift Left -> shift_check ~from:(x + 1, y) ~to_:(x - 1, y)
             | Shift Up -> shift_check ~from:(x, y + 1) ~to_:(x, y - 1)
@@ -242,7 +248,30 @@ let step (state : state) =
                             set_action (x - 1, y) Empty;
                             set_action (x, y - 1) Empty))
                   | _ -> ())
-            | _ -> () (* ignore other cells *)));
+            | Timewarp -> (
+                if out_of_upper_left (x - 1, y - 1) then ()
+                else if out_of_bounds (x + 1, y + 1) then
+                  raise
+                    (Failure
+                       (sprintf "Not implemented: Timewarp at the edge of the grid (%d, %d)" x y))
+                else
+                  match
+                    ( state.grid.(y - 1).(x),
+                      state.grid.(y).(x - 1),
+                      state.grid.(y).(x + 1),
+                      state.grid.(y + 1).(x) )
+                  with
+                  | Literal v, Literal dx, Literal dy, Literal dt -> (
+                      match !timewarp with
+                      | None -> timewarp := Some (small dt, [ (v, x - small dx, y - small dy) ])
+                      | Some (dt', _) when small dt <> dt' ->
+                          raise
+                            (Failure
+                               (sprintf "Multiple timewarps with different dt: %d vs %d" (small dt)
+                                  dt'))
+                      | Some (_, l) ->
+                          timewarp := Some (small dt, (v, x - small dx, y - small dy) :: l))
+                  | _ -> ())));
 
     (* apply the actions *)
     Hashtbl.iteri actions ~f:(fun ~key:(x, y) ~data:cell -> state.grid.(y).(x) <- cell);
@@ -262,7 +291,47 @@ let step (state : state) =
                           (Bigint.to_string_hum v)))
                 else return_value := Some i)
         | _ -> ());
-    { state with current_time = state.current_time + 1; return_value = !return_value }
+
+    match !timewarp with
+    | None ->
+        {
+          state with
+          current_time = state.current_time + 1;
+          current_ticks = state.current_ticks + 1;
+          return_value = !return_value;
+        }
+    | Some (dt, warps) ->
+        (* apply timewarp *)
+        let target_time = state.current_time - dt in
+        let rewound_snapshots =
+          match List.drop_while state.snapshots ~f:(fun (t, _) -> t > target_time) with
+          | [] -> raise (Failure "No snapshot to rewind to")
+          | ls -> ls
+        in
+        let snapshot_time, snapshot = List.hd_exn rewound_snapshots in
+        let replay_ticks = target_time - snapshot_time in
+        let snapshot_state =
+          {
+            state with
+            grid = Array.copy_matrix snapshot;
+            current_time = snapshot_time;
+            current_ticks = state.current_ticks - replay_ticks;
+            snapshots = rewound_snapshots;
+          }
+        in
+        let new_old_state = step_mult replay_ticks snapshot_state in
+        List.iter warps ~f:(fun (v, x, y) -> new_old_state.grid.(y).(x) <- Literal v);
+        {
+          new_old_state with
+          current_time = new_old_state.current_time;
+          current_ticks = new_old_state.current_ticks;
+        }
+
+and step_mult n state =
+  if n <= 0 then state
+  else
+    let new_state = step state in
+    step_mult (n - 1) new_state
 
 (* TESTS *)
 let assert_equal_grids (s1 : state) (s2 : state) =
@@ -540,6 +609,99 @@ let%test_unit "neq_unfired" =
     "  . 3 .                                              \n"
     ^ "3 # .                                              \n"
     ^ ". . .                                              \n"
+    |> _init_state
+  in
+  assert_equal_grids state expected
+
+let%test_unit "timewarp does not fire immediately" =
+  let state =
+    "  . . . . . . .                                      \n"
+    ^ ". = 4 > . . .                                      \n"
+    ^ ". 4 . 2 @ 1 .                                      \n"
+    ^ ". v . . 1 . .                                      \n"
+    ^ ". . . . . . .                                      \n"
+    ^ "S < . . . . .                                      \n"
+    |> _init_state
+    |> step
+  in
+  let expected =
+    "  . . . . . . .                                      \n"
+    ^ ". = . > 4 . .                                      \n"
+    ^ ". . . 2 @ 1 .                                      \n"
+    ^ ". v . . 1 . .                                      \n"
+    ^ ". 4 . . . . .                                      \n"
+    ^ "S < . . . . .                                      \n"
+    |> _init_state
+  in
+  assert_equal_grids state expected
+
+let%test_unit "timewarp pure rewind" =
+  let state =
+    "  . . . . . . .                                      \n"
+    ^ ". = 4 > . . .                                      \n"
+    ^ ". 4 . 2 @ 1 .                                      \n"
+    ^ ". v . . 1 . .                                      \n"
+    ^ ". . . . . . .                                      \n"
+    ^ "S < . . . . .                                      \n"
+    |> _init_state
+    |> step
+    |> step
+  in
+  let expected =
+    "  . . . . . . .                                      \n"
+    ^ ". = 4 > . . .                                      \n"
+    ^ ". 4 . 2 @ 1 .                                      \n"
+    ^ ". v . . 1 . .                                      \n"
+    ^ ". . . . . . .                                      \n"
+    ^ "S < . . . . .                                      \n"
+    |> _init_state
+  in
+  assert_equal_grids state expected
+
+let%test_unit "timewarp pure rewind" =
+  let state =
+    "  . . . . . . .                                      \n"
+    ^ ". = 4 > . . .                                      \n"
+    ^ ". 4 . 2 @ 1 .                                      \n"
+    ^ ". v . . 1 . .                                      \n"
+    ^ ". . . . . . .                                      \n"
+    ^ "S < . . . . .                                      \n"
+    |> _init_state
+    |> step
+    |> step
+  in
+  let expected =
+    "  . . . . . . .                                      \n"
+    ^ ". = 4 > . . .                                      \n"
+    ^ ". 4 . 2 @ 1 .                                      \n"
+    ^ ". v . . 1 . .                                      \n"
+    ^ ". . . . . . .                                      \n"
+    ^ "S < . . . . .                                      \n"
+    |> _init_state
+  in
+  assert_equal_grids state expected
+
+let%test_unit "timewarp pure rewind twice" =
+  let state =
+    "  . . . . . . .                                      \n"
+    ^ ". = 4 > . . .                                      \n"
+    ^ ". 4 . 2 @ 1 .                                      \n"
+    ^ ". v . . 1 . .                                      \n"
+    ^ ". . . . . . .                                      \n"
+    ^ "S < . . . . .                                      \n"
+    |> _init_state
+    |> step
+    |> step
+    |> step
+    |> step
+  in
+  let expected =
+    "  . . . . . . .                                      \n"
+    ^ ". = 4 > . . .                                      \n"
+    ^ ". 4 . 2 @ 1 .                                      \n"
+    ^ ". v . . 1 . .                                      \n"
+    ^ ". . . . . . .                                      \n"
+    ^ "S < . . . . .                                      \n"
     |> _init_state
   in
   assert_equal_grids state expected
