@@ -9,9 +9,9 @@ let () =
   in
   let submit =
     match game with
-    | "spaceship" -> fun sol -> Communication.submit_solution game sol
+    | "spaceship" -> fun name sol -> Communication.submit_solution name sol
     | "lambdaman" -> (
-        fun sol ->
+        fun _ sol ->
           match Communication.request_with_auth sol with
           | Language.String s -> print_endline s
           | _ -> failwith "Invalid response")
@@ -29,6 +29,6 @@ let () =
              if local_better then (
                printf "Submitting solution for %s with score %d (best score is %d)\n" name
                  best_local_score best;
-               submit sol;
+               submit name sol;
                Core_unix.fork_exec ~prog:"git" ~argv:[ "git"; "add"; best_local_file ] () |> ignore)
          | None -> ())
