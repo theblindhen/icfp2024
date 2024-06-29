@@ -43,6 +43,12 @@
  (libraries lib core))
 
 (executable
+ (public_name run3D)
+ (name run3D)
+ (modules run3D)
+ (libraries lib core))
+
+(executable
  (public_name submit)
  (name submit)
  (modules submit)
