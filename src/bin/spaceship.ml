@@ -101,6 +101,8 @@ let solve (problem : (int * int) list) =
           (* Go forward as fast as possible *)
           Sign.to_int signy * Int.min (max_stoppable_speed (abs disty)) (abs vy + 1)
       in
+      (* TODO: In the future it's possible that we'll try to brake too hard
+         while going forward, and we have to limit that. *)
       let move = move_of_direction (vx' - vx, vy' - vy) in
       step_to_point (distx - vx', disty - vy') (vx', vy') (move :: moves_rev)
   in
