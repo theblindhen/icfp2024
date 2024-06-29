@@ -147,6 +147,7 @@ let () =
     let lambda_pos, pills = find_positions grid in
     let path = solve_traveling_lambdaman grid lambda_pos pills in
     List.iter ~f:(printf "%c") path;
+    printf "\n";
     let sol_str = String.of_char_list path in
     let sol_int = Lambdaman_pack.encode_dirs sol_str in
     let prefix = "solve lambdaman" ^ level ^ " " in
@@ -155,10 +156,18 @@ let () =
         Metalanguage.(concat_op (String prefix) (app Lambdaman_pack.decode_dirs (Integer sol_int)))
     in
     let nonpack_sol = Language.encode_string_token (prefix ^ String.of_char_list path) in
-    let sol =
-      if String.length pack_sol < String.length nonpack_sol then pack_sol else nonpack_sol
+    let rep_sol =
+      Language.deparse
+        Metalanguage.(concat_op (String prefix) (Lambdaman_pack.encode_as_repeats sol_str))
     in
-    Solutions.write_solution "lambdaman" dir level sol;
-    printf "\n";
-    printf "%s\n" sol;
-    printf "\n"
+    let sols =
+      [ ("pack", pack_sol); ("string", nonpack_sol); ("repeat", rep_sol) ]
+      |> List.map ~f:(fun (name, sol) -> (name, sol, String.length sol))
+    in
+    List.iter sols ~f:(fun (name, _, size) -> printf "%s yielded encoding of size %d\n" name size);
+    match List.min_elt sols ~compare:(fun (_, _, len1) (_, _, len2) -> Int.compare len1 len2) with
+    | Some (name, sol, size) ->
+        Solutions.write_solution "lambdaman" dir level sol;
+        printf "%s yielded shortest encoding (size: %d)\n" name size;
+        printf "\n"
+    | None -> failwith "No solution found"
