@@ -74,7 +74,7 @@ let rec eval_step (prg : Language.term) : term =
   | Unary (Minus, Integer i) -> Integer (-i)
   | Unary (Not, Boolean b) -> Boolean (not b)
   | Unary (StringToInt, String s) -> Integer (encode_string s |> parse_int)
-  | Unary (IntToString, Integer i) -> String (int_as_string i |> decode_string)
+  | Unary (IntToString, Integer i) -> String (deparse_int i |> decode_string)
   | Unary (op, t) -> Unary (op, eval_step t)
   | Binary (Add, Integer i1, Integer i2) -> Integer (i1 + i2)
   | Binary (Sub, Integer i1, Integer i2) -> Integer (i1 - i2)
