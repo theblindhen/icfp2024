@@ -13,6 +13,7 @@ let is_free (var : int) (prg : term) : bool =
     | If (t1, t2, t3) -> is_free' t1 || is_free' t2 || is_free' t3
     | Abstract (x, t) -> if x = var then false else is_free' t
     | Var x -> x = var
+    | Thunk t -> is_free' !t
   in
   is_free' prg
 
@@ -28,6 +29,7 @@ let max_var (prg : term) : int =
     | If (t1, t2, t3) -> Int.max (Int.max (max_var' t1) (max_var' t2)) (max_var' t3)
     | Abstract (x, t) -> Int.max x (max_var' t)
     | Var x -> x
+    | Thunk t -> max_var' !t
   in
   max_var' prg
 
@@ -45,7 +47,9 @@ let var_rename (prg : term) (old_var : int) (new_var : int) : term =
         assert (x <> new_var);
         if x = old_var then Abstract (x, t) else Abstract (x, var_rename' t)
     | Var x -> if x = old_var then Var new_var else Var x
+    | Thunk t -> if is_free old_var !t then var_rename' !t else Thunk t
   in
+
   var_rename' prg
 
 (** Substitute capture-avoidingly the variable for the expr *)
@@ -62,7 +66,22 @@ let rec subst (prg : term) (var : int) (expr : term) =
         Abstract (fresh_x, subst fresh_t var expr)
       else Abstract (x, subst t var expr)
   | Var x -> if x = var then expr else Var x
+  | Thunk t -> if is_free var !t then subst !t var expr else Thunk t
   | _ -> prg
+
+let is_value term =
+  match term with
+  | Boolean _ -> true
+  | Integer _ -> true
+  | String _ -> true
+  | Abstract _ -> true
+  | Var _ -> true
+  | Unary _ -> false
+  | Binary _ -> false
+  | If _ -> false
+  | Thunk _ -> false
+
+let thunking_enabled = false
 
 let rec eval_step (prg : Language.term) : term =
   match prg with
@@ -75,6 +94,7 @@ let rec eval_step (prg : Language.term) : term =
   | Unary (Not, Boolean b) -> Boolean (not b)
   | Unary (StringToInt, String s) -> Integer (encode_string s |> parse_big_int)
   | Unary (IntToString, Integer i) -> String (deparse_big_int i |> decode_string)
+  | Unary (_, t) when is_value t -> failwith "Unexpected unary operand"
   | Unary (op, t) -> Unary (op, eval_step t)
   | Binary (Add, Integer i1, Integer i2) -> Integer (i1 ++ i2)
   | Binary (Sub, Integer i1, Integer i2) -> Integer (i1 -- i2)
@@ -91,16 +111,27 @@ let rec eval_step (prg : Language.term) : term =
   | Binary (StringConcat, String s1, String s2) -> String (s1 ^ s2)
   | Binary (Take, Integer i, String s) -> String (String.prefix s (small i))
   | Binary (Drop, Integer i, String s) -> String (String.drop_prefix s (small i))
-  | Binary (Apply, Abstract (x, t), v) -> subst t x v
+  | Binary (Apply, Abstract (x, t), v) ->
+      subst t x (if is_value v || not thunking_enabled then v else Thunk (ref v))
   | Binary (Apply, t, v) -> Binary (Apply, eval_step t, v)
+  | Binary (_, t1, t2) when is_value t1 && is_value t2 -> failwith "Unexpected binary operand"
   | Binary (op (* not Apply *), t1, t2) -> Binary (op, eval_step t1, eval_step t2)
   | If (Boolean b, t1, t2) -> if b then t1 else t2
+  | If (t, _, _) when is_value t -> failwith "Unexpected if operand"
   | If (op, t1, t2) -> If (eval_step op, t1, t2)
+  | Thunk t ->
+      if is_value !t then !t
+      else
+        let v = eval_step !t in
+        t := v;
+        Thunk t
 
 let eval (prg : term) : term =
   let rec eval' (prg : term) : term =
     let prg' = eval_step prg in
-    if equal_term prg' prg then prg else eval' prg'
+    match thunking_enabled with
+    | true -> if is_value prg' then prg' else eval' prg'
+    | false -> if equal_term prg prg' then prg' else eval' prg'
   in
   eval' prg
 

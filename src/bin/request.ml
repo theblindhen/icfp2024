@@ -23,4 +23,4 @@ let () =
   | String s -> print_endline s
   | Integer i -> print_endline (Bigint.to_string_hum i)
   | Boolean b -> print_endline (Bool.to_string b)
-  | _ -> failwith "Nonliteral eval result"
+  | _ -> failwith ("Nonliteral eval result: " ^ Language.pp_as_lambda 50 response)

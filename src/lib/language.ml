@@ -50,6 +50,7 @@ type term =
   | If of term * term * term
   | Abstract of int * term
   | Var of int
+  | Thunk of term ref
 [@@deriving sexp, equal, compare]
 
 let big (i : int) = Bigint.of_int i
@@ -194,6 +195,7 @@ let rec deparse (prg : term) =
   | If (cond, then_, else_) -> "? " ^ deparse cond ^ " " ^ deparse then_ ^ " " ^ deparse else_
   | Abstract (var, body) -> "L" ^ deparse_int var ^ " " ^ deparse body
   | Var var -> "v" ^ deparse_int var
+  | Thunk t -> deparse !t
 
 let parens ctx_predence op_precedence str =
   if ctx_predence <= op_precedence then "(" ^ str ^ ")" else str
@@ -244,6 +246,7 @@ let rec pp_as_lambda ctx_precedence term =
       let p = 50 in
       parens ctx_precedence p ("\\v" ^ Int.to_string var ^ " -> " ^ pp_as_lambda p body)
   | Var var -> "v" ^ Int.to_string var
+  | Thunk t -> "thunk(" ^ pp_as_lambda 50 !t ^ ")"
 
 (* TESTS *)
 let%test_unit "quo_rem" = [%test_eq: Bigint.t * Bigint.t] (quo_rem (big 10) (big 3)) (big 3, big 1)
