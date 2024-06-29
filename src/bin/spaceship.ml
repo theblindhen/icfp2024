@@ -146,7 +146,6 @@ let solve (problem : (int * int) list) =
         Hash_set.remove point_set (x, y);
         if Hash_set.is_empty point_set then [ moves ] else moves :: search_all_points state
   in
-  let _ = to_remaining_points in
   try List.concat (search_all_points (0, 0, 0, 0)) with
   | Gave_up_search ->
       Printf.eprintf "Falling back to simple solution\n%!";
