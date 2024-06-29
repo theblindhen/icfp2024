@@ -33,17 +33,19 @@ RUN opam install -y ocaml-lsp-server ocamlformat
 RUN curl -L https://github.com/avh4/elm-format/releases/download/0.8.7/elm-format-0.8.7-linux-x64.tgz | tar -C ~/.opam/5.2.0/bin -xz
 
 RUN sudo apt-get install -y --no-install-recommends libgmp-dev pkg-config \
- && opam install -y cohttp cohttp-lwt-unix lwt_ssl
+    && opam install -y cohttp cohttp-lwt-unix lwt_ssl
+
+RUN opam install -y bignum
 
 # For Windows workaround. See readme.
 RUN mkdir "$HOME/warmup_build" \
- && mkdir "$HOME/src_build"
+    && mkdir "$HOME/src_build"
 
 # To persist bash history and sync it eagerly. Adapted from
 # https://code.visualstudio.com/remote/advancedcontainers/persist-bash-history
 RUN SNIPPET="if [ -d \"\$WORKSPACE_FOLDER\" ]; then \
-        export PROMPT_COMMAND='history -a' \
-        && export HISTFILE=\"\$WORKSPACE_FOLDER/.bash_history\" \
-        && touch \"\$HISTFILE\"; \
+    export PROMPT_COMMAND='history -a' \
+    && export HISTFILE=\"\$WORKSPACE_FOLDER/.bash_history\" \
+    && touch \"\$HISTFILE\"; \
     fi" \
     && echo "$SNIPPET" >> "$HOME/.bashrc"
