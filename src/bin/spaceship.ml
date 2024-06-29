@@ -56,6 +56,10 @@ let closest_square (x, y) squares =
   |> List.min_elt ~compare:(fun (_, d1) (_, d2) -> Int.compare d1 d2)
   |> Option.map ~f:fst
 
+type state = int * int * int * int
+
+exception Gave_up_search
+
 let solve (problem : (int * int) list) =
   (* Solution strategy:
       - While where are squares to visit:
@@ -63,9 +67,9 @@ let solve (problem : (int * int) list) =
         - Move towards it with both vx and vy between -1 and 1 (later: larger values)
         - Stop when we reach it (later: keep moving)
   *)
-  let vmax dist =
+  let max_stoppable_speed dist =
     (*
-      How much can we speed up when there's distance d left, assuming we need
+      How much can we speed up when there's distance dist left, assuming we need
       to slow down to a standstill before we get there?
 
       Let's say we're considering whether to move at speed 3. Then we must go
@@ -82,8 +86,8 @@ let solve (problem : (int * int) list) =
       (* Invariant: we're always going in the right direction and never too fast. *)
       let signx = Int.sign distx in
       let signy = Int.sign disty in
-      let vabsx' = Int.min (vmax (abs distx)) (abs vx + 1) in
-      let vabsy' = Int.min (vmax (abs disty)) (abs vx + 1) in
+      let vabsx' = Int.min (max_stoppable_speed (abs distx)) (abs vx + 1) in
+      let vabsy' = Int.min (max_stoppable_speed (abs disty)) (abs vx + 1) in
       let vx' = Sign.to_int signx * vabsx' in
       let vy' = Sign.to_int signy * vabsy' in
       let move = move_of_direction (vx' - vx, vy' - vy) in
@@ -102,7 +106,51 @@ let solve (problem : (int * int) list) =
         let steps = step_to_point (distx, disty) (0, 0) in
         steps :: (to_remaining_points [@tailcall]) (endx, endy) points
   in
-  List.concat (to_remaining_points (0, 0) problem)
+  let point_set = Hash_set.Poly.of_list problem in
+  (* MUTABLE: remaining points *)
+  (* Alternative implementation: search the local neighborhood of moves.
+     Consider all states we can get into by making `depth` moves and see if
+     they happen to hit upon a point. *)
+  let rec search_one_point ~depth (frontier : (state * char list) list) =
+    (* Invariant: nothing in frontier is in point_set. *)
+    if depth = 0 then None
+    else
+      let frontier =
+        List.concat_map frontier ~f:(fun ((x, y, vx, vy), moves) ->
+            List.map [ '1'; '2'; '3'; '4'; '5'; '6'; '7'; '8'; '9' ] ~f:(fun move ->
+                (* TODO: there are some easy options for excluding silly moves:
+                   - Don't stand still.
+                   - Don't move in a direction where there's no target.
+                   - Limit speed by max_stoppable_speed or something similar.
+                   - Don't revisit a state we've already seen (but this
+                     requires memory, and maybe it doesn't help all that much).
+                *)
+                let ax, ay = direction_of_move move in
+                let vx' = vx + ax in
+                let vy' = vy + ay in
+                let x' = x + vx' in
+                let y' = y + vy' in
+                let moves' = move :: moves in
+                ((x', y', vx', vy'), moves')))
+      in
+      (* If something in the frontier matches a point, pick that as the solution.
+         TODO: Prefer nearer targets or something like that? *)
+      match List.find frontier ~f:(fun ((x, y, _, _), _) -> Hash_set.Poly.mem point_set (x, y)) with
+      | Some (state, moves) -> Some (state, List.rev moves)
+      | None -> search_one_point ~depth:(depth - 1) frontier
+  in
+  let[@tail_mod_cons] rec search_all_points (state : state) =
+    match search_one_point ~depth:7 [ (state, []) ] with
+    | None -> raise Gave_up_search
+    | Some (((x, y, _, _) as state), moves) ->
+        Hash_set.remove point_set (x, y);
+        if Hash_set.is_empty point_set then [ moves ] else moves :: search_all_points state
+  in
+  let _ = to_remaining_points in
+  try List.concat (search_all_points (0, 0, 0, 0)) with
+  | Gave_up_search ->
+      Printf.eprintf "Falling back to simple solution\n%!";
+      List.concat (to_remaining_points (0, 0) problem)
 
 let simulate problem solution =
   let points_map = Hash_set.Poly.of_list problem in
