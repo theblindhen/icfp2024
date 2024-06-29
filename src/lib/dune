@@ -3,7 +3,14 @@
  (inline_tests)
  (preprocess
   (pps ppx_jane))
- (modules language astar interpreter communication solutions lambdaman_pack)
+ (modules
+  language
+  astar
+  interpreter
+  communication
+  solutions
+  metalanguage
+  lambdaman_pack)
  (flags
   -strict-sequence
   -strict-formats
