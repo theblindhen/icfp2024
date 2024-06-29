@@ -19,6 +19,7 @@ let take_op t1 t2 = Binary (Take, t1, t2)
 let drop_op t1 t2 = Binary (Drop, t1, t2)
 let mod_op t1 t2 = Binary (Mod, t1, t2)
 let div_op t1 t2 = Binary (Div, t1, t2)
+let sub_op t1 t2 = Binary (Sub, t1, t2)
 let concat_op t1 t2 = Binary (StringConcat, t1, t2)
 let sToI t = Unary (StringToInt, t)
 
