@@ -20,7 +20,9 @@
  (public_name request)
  (name request)
  (modules request)
- (libraries lib core))
+ (preprocess
+  (pps ppx_jane))
+ (libraries lib core_unix.command_unix core))
 
 (executable
  (public_name lambdaman_solve)

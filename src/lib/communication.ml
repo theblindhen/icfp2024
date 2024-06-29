@@ -7,16 +7,18 @@ open Core
 open Lwt
 open Re
 
-let get_body_of_token auth_token input =
+let get_unevaled_body_of_token auth_token input =
   let headers = Cohttp.Header.of_list [ ("Authorization", "Bearer " ^ auth_token) ] in
   let body = Cohttp_lwt.Body.of_string input in
   let uri = "https://boundvariable.space/communicate" in
   Cohttp_lwt_unix.Client.post ~headers ~body (Uri.of_string uri) >>= fun (_resp, body) ->
   Cohttp_lwt.Body.to_string body >>= fun body_string ->
   let term = Language.parse body_string in
-  (* printf "Received term: %s\n" (Language.sexp_of_term term |> Sexp.to_string_hum); *)
+  Lwt.return term
+
+let get_body_of_token auth_token input =
+  get_unevaled_body_of_token auth_token input >>= fun term ->
   let evaled = Interpreter.eval term in
-  (* printf "Eval: %s" (Language.sexp_of_term evaled |> Sexp.to_string_hum); *)
   Lwt.return evaled
 
 let get_body auth_token input = get_body_of_token auth_token (Language.encode_string_token input)
@@ -24,6 +26,10 @@ let get_body auth_token input = get_body_of_token auth_token (Language.encode_st
 let request_with_auth token =
   let auth_token = Sys.getenv_exn "AUTH_TOKEN" in
   Lwt_main.run (get_body_of_token auth_token token)
+
+let request_unevaled_with_auth token =
+  let auth_token = Sys.getenv_exn "AUTH_TOKEN" in
+  Lwt_main.run (get_unevaled_body_of_token auth_token token)
 
 (* Score utils *)
 let name = Re.compile Re.(seq [ str "["; group (rep1 alnum); str "]" ])
