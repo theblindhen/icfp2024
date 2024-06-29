@@ -4,13 +4,15 @@
  (preprocess
   (pps ppx_jane))
  (modules
+  util
   language
   astar
   interpreter
   communication
   solutions
   metalanguage
-  lambdaman_pack)
+  lambdaman_pack
+  threeD)
  (flags
   -strict-sequence
   -strict-formats
