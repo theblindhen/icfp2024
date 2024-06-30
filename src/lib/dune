@@ -12,6 +12,7 @@
   solutions
   metalanguage
   lambdaman_pack
+  lambdaman_sim
   threeD)
  (flags
   -strict-sequence

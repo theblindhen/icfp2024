@@ -111,18 +111,30 @@ let hand_solutions =
     List.map hand_solutions9 ~f:(fun s -> (s, fun _ -> true));
   ]
 
+let get_hand_solutions level =
+  if
+    level - 1 < List.length hand_solutions
+    && not (List.is_empty (List.nth_exn hand_solutions (level - 1)))
+  then Some (List.nth_exn hand_solutions (level - 1))
+  else None
+
+let get_random_solutions dir level =
+  let filename = dir ^ "/lambdaman" ^ Int.to_string level ^ ".txt" in
+  let _grid = Util.read_grid filename in
+  None
+
 (* Main function *)
 let () =
-  if Array.length (Sys.get_argv ()) <> 3 then
-    printf "Usage: %s <input_dir> <level>\n" (Sys.get_argv ()).(0)
-  else
-    let dir = (Sys.get_argv ()).(1) in
-    let level = Int.of_string (Sys.get_argv ()).(2) in
-    if
-      level - 1 < List.length hand_solutions
-      && not (List.is_empty (List.nth_exn hand_solutions (level - 1)))
-    then
-      let sols = List.nth_exn hand_solutions (level - 1) in
+  let dir, level, use_random =
+    match Sys.get_argv () with
+    | [| _; dir; level |] -> (dir, Int.of_string level, false)
+    | [| _; "-r"; dir; level |] -> (dir, Int.of_string level, true)
+    | _ -> failwith (sprintf "Usage: %s [-r] <input_dir> <level>\n" (Sys.get_argv ()).(0))
+  in
+  let sols = if use_random then get_random_solutions dir level else get_hand_solutions level in
+  match sols with
+  | None -> printf "No solution for level %d\n" level
+  | Some sols ->
       List.iter sols ~f:(fun (sol, validator) ->
           let icfp = Language.deparse sol in
           printf "%5d: %s\n" (String.length icfp) icfp;
@@ -135,4 +147,3 @@ let () =
                   (Language.deparse (wrap_prefix level sol))
               else printf "XXX Didn't validate: %s\n" s
           | _ -> printf "XXX Didn't evaluate to a string literal: %s\n" (Language.deparse res))
-    else printf "No handwritten solution for level %d\n" level
