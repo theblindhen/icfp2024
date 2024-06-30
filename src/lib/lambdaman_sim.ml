@@ -70,6 +70,14 @@ let init_state grid =
   let ticks = 0 in
   { grid; ticks; lambdaman; pills }
 
+let duplicate_state state =
+  {
+    grid = Array.copy_matrix state.grid;
+    lambdaman = state.lambdaman;
+    pills = Hash_set.Poly.copy state.pills;
+    ticks = state.ticks;
+  }
+
 let dump_state state =
   let rows_s =
     state.grid

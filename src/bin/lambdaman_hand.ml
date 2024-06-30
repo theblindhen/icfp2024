@@ -186,32 +186,36 @@ let get_random_solutions dir level =
   let doubling = level > 10 && level < 17 in
   let boost_max = 3 in
   let boost_prob = 0.8 in
+  let seed_generator () = Muttleyman.random_seed seed_len in
+  let path_generator _seed =
+    Muttleyman.random_moves (1_000_000 / boost_max * 2)
+    |> (if doubling then Muttleyman.double_path else Fn.id)
+    |> Muttleyman.boost_path boost_max boost_prob
+  in
   try
     printf "Trying to find solution at seed len %d%!" seed_len;
     for i = 1 to trials do
       printf ".%!";
       let state = Lambdaman_sim.init_state (Array.copy_matrix grid) in
-      let dirs =
-        Muttleyman.random_moves (1_000_000 / boost_max * 2)
-        |> (if doubling then Muttleyman.double_dirs else Fn.id)
-        |> Muttleyman.boost_dirs boost_max boost_prob
+      let seed = seed_generator () in
+      let path = path_generator seed in
+      let path =
+        if String.length path > 1_000_000 then printf "WARNING: path too long, truncating\n";
+        String.prefix path 1_000_000
       in
-      let seed = Muttleyman.random_seed seed_len in
-      (*   let dirs = Muttleyman.pseudo_repeat_random seed_len seed 950_000 in *)
-      let dirs = String.prefix dirs 1_000_000 in
-      Lambdaman_sim.run_str state dirs;
+      Lambdaman_sim.run_str state path;
       if state.pills |> Hash_set.Poly.is_empty then
         let rounds = (state.ticks / (seed_len * 2)) + 1 in
-        raise (FoundSolution (seed, dirs, rounds))
+        raise (FoundSolution (seed, path, rounds))
       else if i = trials then (
         printf "No solution found\nFinal state of last run:\n%s\n" (Lambdaman_sim.dump_state state);
         printf "Really, there was no solution\n")
     done;
     None
   with
-  | FoundSolution (seed, _dirs, rounds) ->
+  | FoundSolution (seed, _path, rounds) ->
       printf "FOUND SOLUTION:\n";
-      (* printf "Dirs:\n%s\n" dirs; *)
+      (* printf "path:\n%s\n" path; *)
       printf "Random seed:\n%s\n" (Bigint.to_string seed);
       printf "Rounds needed: %d\n" rounds;
       None

@@ -1,5 +1,6 @@
 open Core
 open Util
+open Lambdaman_sim
 
 let decode_dir = function
   | 0 -> 'L'
@@ -8,12 +9,12 @@ let decode_dir = function
   | 3 -> 'R'
   | _ -> failwith "Invalid move"
 
-let encode_dirs s =
+let encode_path s =
   String.to_list s
   |> List.map ~f:Lambdaman_pack.encode_dir
   |> List.fold ~init:Bigint.zero ~f:(fun acc x -> Bigint.((acc * big 4) + x))
 
-let decode_dirs n =
+let decode_path n =
   let rec aux acc n =
     if Bigint.(n = zero) then acc
     else
@@ -41,12 +42,12 @@ let pseudo_repeat_random seed_len seed total =
     if i = reps then acc
     else
       let shuffle_seed = Bigint.(seed * (seed + big i)) in
-      aux (decode_dirs shuffle_seed :: acc) (i + 1)
+      aux (decode_path shuffle_seed :: acc) (i + 1)
   in
   aux [] 0 |> List.rev |> String.concat
 
-let boost_dirs boost_max prob dirs =
-  dirs
+let boost_path boost_max prob path =
+  path
   |> String.to_list
   |> List.map ~f:(fun c ->
          if Float.( < ) (Random.float 1.0) prob then
@@ -55,5 +56,58 @@ let boost_dirs boost_max prob dirs =
          else String.of_char c)
   |> String.concat
 
-let double_dirs dirs =
-  dirs |> String.to_list |> List.map ~f:(fun c -> repeat (String.of_char c) 2) |> String.concat
+let double_path path =
+  path |> String.to_list |> List.map ~f:(fun c -> repeat (String.of_char c) 2) |> String.concat
+
+exception FoundSolution of Bigint.t
+
+type window = (int * int) * (int * int)
+
+let get_windows state =
+  (* Get quadrants *)
+  let grid = state.grid in
+  let x_mid = Array.length grid.(0) / 2 in
+  let y_mid = Array.length grid / 2 in
+  let x_max, y_max = (Array.length grid.(0), Array.length grid) in
+  let windows =
+    [
+      ((0, 0), (x_mid, y_mid));
+      ((x_mid, 0), (x_max, y_mid));
+      ((0, y_mid), (x_mid, y_max));
+      ((x_mid, y_mid), (x_max, y_max));
+    ]
+  in
+  (* Order the windows so that the one with lambdaman in is first *)
+  let lambdaman = state.lambdaman in
+  List.sort windows ~compare:(fun ((x1, y1), (x2, y2)) _ ->
+      (if x1 <= fst lambdaman && x2 > fst lambdaman then 1 else 0)
+      + if y1 <= snd lambdaman && y2 > snd lambdaman then 1 else 0)
+
+let find_good_seed window init_state seed_generator generator trials =
+  (* At the state we're currently at, try to find a good seed for the generator
+   * which results in the window being emptied of pills. *)
+  let (x1, y1), (x2, y2) = window in
+  printf "Finding seed for window (%d, %d) to (%d, %d)\n%!" x1 y1 x2 y2;
+  try
+    for _ = 1 to trials do
+      let seed = seed_generator () in
+      let path = generator seed in
+      let state = duplicate_state init_state in
+      run_str state path;
+      if
+        state.pills
+        |> Hash_set.Poly.filter ~f:(fun (x, y) -> x >= x1 && x < x2 && y >= y1 && y < y2)
+        |> Hash_set.Poly.is_empty
+      then raise (FoundSolution seed)
+    done;
+    None
+  with
+  | FoundSolution seed -> Some seed
+
+let window_seeder init_state seed_generator generator trials =
+  let windows = get_windows init_state in
+  let seeds =
+    List.map windows ~f:(fun window ->
+        find_good_seed window init_state seed_generator generator trials)
+  in
+  List.zip_exn windows seeds
