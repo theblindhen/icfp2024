@@ -42,27 +42,27 @@ LLLDURRRUDRRURR
 When Lambda-Man is instructed to move into a square containing a wall, nothing happens and the instruction is skipped. Your solution may consist of at most `1,000,000` characters.
 
 The following levels are available:
-* [lambdaman1] Best score: 33.
-* [lambdaman2] Best score: 44.
-* [lambdaman3] Best score: 58.
-* [lambdaman4] Best score: 402.
-* [lambdaman5] Best score: 215.
-* [lambdaman6]
-* [lambdaman7] Best score: 475.
-* [lambdaman8] Best score: 321.
-* [lambdaman9]
-* [lambdaman10]
-* [lambdaman11] Best score: 9997.
-* [lambdaman12] Best score: 10003.
-* [lambdaman13] Best score: 9993.
-* [lambdaman14] Best score: 10011.
-* [lambdaman15] Best score: 9993.
-* [lambdaman16] Best score: 8209.
-* [lambdaman17] Best score: 2922.
-* [lambdaman18] Best score: 14607.
-* [lambdaman19] Best score: 16364.
-* [lambdaman20] Best score: 21934.
-* [lambdaman21]
+* [lambdaman1] Your score: 33. Best score: 33.
+* [lambdaman2] Your score: 44. Best score: 44.
+* [lambdaman3] Your score: 58. Best score: 58.
+* [lambdaman4] Your score: 263. Best score: 112.
+* [lambdaman5] Your score: 166. Best score: 111.
+* [lambdaman6] Your score: 73. Best score: 73.
+* [lambdaman7] Your score: 292. Best score: 111.
+* [lambdaman8] Your score: 151. Best score: 113.
+* [lambdaman9] Your score: 154. Best score: 109.
+* [lambdaman10] Your score: 265. Best score: 113.
+* [lambdaman11] Your score: 3199. Best score: 147.
+* [lambdaman12] Your score: 3198. Best score: 147.
+* [lambdaman13] Your score: 3199. Best score: 147.
+* [lambdaman14] Your score: 3200. Best score: 147.
+* [lambdaman15] Your score: 3198. Best score: 143.
+* [lambdaman16] Your score: 2651. Best score: 153.
+* [lambdaman17] Your score: 986. Best score: 115.
+* [lambdaman18] Your score: 4567. Best score: 144.
+* [lambdaman19] Your score: 5139. Best score: 237.
+* [lambdaman20] Your score: 6809. Best score: 193.
+* [lambdaman21] Your score: 9855. Best score: 141.
 
 To submit a solution, send an ICFP expression that evaluates to:
 

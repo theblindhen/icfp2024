@@ -44,3 +44,13 @@ let pseudo_repeat_random seed_len seed total =
       aux (decode_dirs shuffle_seed :: acc) (i + 1)
   in
   aux [] 0 |> List.rev |> String.concat
+
+let boost_dirs boost_max prob dirs =
+  dirs
+  |> String.to_list
+  |> List.map ~f:(fun c ->
+         if Float.( < ) (Random.float 1.0) prob then
+           let reps = Random.int boost_max in
+           repeat (String.of_char c) reps
+         else String.of_char c)
+  |> String.concat

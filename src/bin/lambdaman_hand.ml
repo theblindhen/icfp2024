@@ -181,18 +181,27 @@ exception FoundSolution of Bigint.t * string * int
 let get_random_solutions dir level =
   let filename = dir ^ "/lambdaman" ^ Int.to_string level ^ ".txt" in
   let grid = Util.load_char_grid filename in
-  let seed_len = 50 in
+  let seed_len = 100 in
+  let trials = 100 in
+  let boost_max = 1 in
+  let boost_prob = 0.8 in
   try
     printf "Trying to find solution at seed len %d%!" seed_len;
-    for _ = 1 to 100 do
+    for i = 1 to trials do
       printf ".%!";
       let state = Lambdaman_sim.init_state (Array.copy_matrix grid) in
+      let dirs = Muttleyman.random_moves (1_000_000 / boost_max * 2) in
+      let dirs = Muttleyman.boost_dirs boost_max boost_prob dirs in
       let seed = Muttleyman.random_seed seed_len in
-      let dirs = Muttleyman.pseudo_repeat_random seed_len seed 950_000 in
+      (*   let dirs = Muttleyman.pseudo_repeat_random seed_len seed 950_000 in *)
+      let dirs = String.prefix dirs 1_000_000 in
       Lambdaman_sim.run_str state dirs;
       if state.pills |> Hash_set.Poly.is_empty then
         let rounds = (state.ticks / (seed_len * 2)) + 1 in
         raise (FoundSolution (seed, dirs, rounds))
+      else if i = trials then (
+        printf "No solution found\nFinal state of last run:\n%s\n" (Lambdaman_sim.dump_state state);
+        printf "Really, there was no solution\n")
     done;
     None
   with
