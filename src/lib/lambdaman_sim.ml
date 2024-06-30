@@ -3,34 +3,51 @@ open Util
 
 type direction = R | L | U | D
 
+let dir_of_char = function
+  | 'R' -> R
+  | 'L' -> L
+  | 'U' -> U
+  | 'D' -> D
+  | _ -> failwith "Invalid direction"
+
 type state = {
   grid : char array array;
   mutable lambdaman : int * int;
   mutable pills : (int * int) Hash_set.Poly.t;
+  mutable ticks : int;
 }
 
 let step state dir =
-  let cur_x, cur_y = state.lambdaman in
-  let next_x, next_y =
-    match dir with
-    | R -> (cur_x + 1, cur_y)
-    | L -> (cur_x - 1, cur_y)
-    | U -> (cur_x, cur_y + 1)
-    | D -> (cur_x, cur_y - 1)
-  in
-  if
-    (next_x < 0 || next_x >= Array.length state.grid.(0))
-    || next_y < 0
-    || next_y >= Array.length state.grid
-  then ()
+  if state.pills |> Hash_set.Poly.is_empty then false
   else
-    match state.grid.(next_y).(next_x) with
-    | '#' -> ()
-    | '.' ->
+    let cur_x, cur_y = state.lambdaman in
+    let next_x, next_y =
+      match dir with
+      | R -> (cur_x + 1, cur_y)
+      | L -> (cur_x - 1, cur_y)
+      | U -> (cur_x, cur_y - 1)
+      | D -> (cur_x, cur_y + 1)
+    in
+    state.ticks <- state.ticks + 1;
+    if
+      (next_x < 0 || next_x >= Array.length state.grid.(0))
+      || next_y < 0
+      || next_y >= Array.length state.grid
+    then true
+    else
+      let move_lambdaman () =
         state.lambdaman <- (next_x, next_y);
-        Hash_set.Poly.remove state.pills (next_x, next_y)
-    | ' ' -> state.lambdaman <- (next_x, next_y)
-    | _ -> failwith "Invalid grid"
+        state.grid.(cur_y).(cur_x) <- ' ';
+        state.grid.(next_y).(next_x) <- 'L'
+      in
+      (match state.grid.(next_y).(next_x) with
+      | '#' -> ()
+      | '.' ->
+          move_lambdaman ();
+          Hash_set.Poly.remove state.pills (next_x, next_y)
+      | ' ' -> move_lambdaman ()
+      | _ -> failwith "Invalid grid");
+      true
 
 let find_chars (grid : char array array) c =
   let rec aux x y acc =
@@ -41,10 +58,18 @@ let find_chars (grid : char array array) c =
   in
   aux 0 0 []
 
+let run state dirs = List.iter dirs ~f:(fun dir -> step state dir |> ignore)
+
+let run_str (state : state) dirs_s =
+  let dirs = dirs_s |> String.to_list |> List.map ~f:dir_of_char in
+  run state dirs
+
 let init_state grid =
   let lambdaman = find_chars grid 'L' |> List.hd_exn in
   let pills = find_chars grid '.' |> Hash_set.Poly.of_list in
-  { grid; lambdaman; pills }
+  let ticks = 0 in
+  printf "Lambdaman at: %d %d\n" (fst lambdaman) (snd lambdaman);
+  { grid; ticks; lambdaman; pills }
 
 let dump_state state =
   let rows_s =
@@ -52,4 +77,4 @@ let dump_state state =
     |> Array.map ~f:(fun row -> row |> Array.to_sequence |> String.of_sequence)
     |> Array.to_list
   in
-  String.concat ~sep:"\n" rows_s
+  "Ticks: " ^ Int.to_string state.ticks ^ "\n" ^ String.concat ~sep:"\n" rows_s

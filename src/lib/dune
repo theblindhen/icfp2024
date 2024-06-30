@@ -13,6 +13,7 @@
   metalanguage
   lambdaman_pack
   lambdaman_sim
+  muttleyman
   threeD)
  (flags
   -strict-sequence

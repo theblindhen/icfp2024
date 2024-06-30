@@ -1,5 +1,6 @@
 open Core
 
+(* Read a string array type grid from a file *)
 let read_grid filename =
   let in_channel = In_channel.create filename in
   let rec aux grid =
@@ -13,7 +14,7 @@ let read_grid filename =
   in
   Array.of_list (aux [])
 
-(* Convert a grid to a char array array *)
+(* Convert a string array grid to a char array array *)
 let to_char_array grid = Array.map ~f:String.to_array grid
 let big (i : int) = Bigint.of_int i
 let small (i : Bigint.t) = Bigint.to_int_exn i
@@ -21,6 +22,11 @@ let ( ++ ) = Bigint.( + )
 let ( -- ) = Bigint.( - )
 let ( ** ) = Bigint.( * )
 let ( // ) = Bigint.( / )
+
+(* Load a char array array from a file *)
+let load_char_grid filename =
+  let input = In_channel.input_all (In_channel.create filename) in
+  to_char_array (String.split_lines input |> Array.of_list)
 
 let quo_rem (a : Bigint.t) (b : Bigint.t) =
   let quo = Bigint.( / ) a b in

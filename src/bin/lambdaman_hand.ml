@@ -147,7 +147,12 @@ let get_hand_solutions level =
 
 let get_random_solutions dir level =
   let filename = dir ^ "/lambdaman" ^ Int.to_string level ^ ".txt" in
-  let _grid = Util.read_grid filename in
+  let grid = Util.load_char_grid filename in
+  let state = Lambdaman_sim.init_state grid in
+  printf "Initial state:\n%s\n" (Lambdaman_sim.dump_state state);
+  let random_string = Muttleyman.repeated_random 50 20_000 in
+  Lambdaman_sim.run_str state random_string;
+  printf "End state:\n%s\n" (Lambdaman_sim.dump_state state);
   None
 
 let check = ref false
