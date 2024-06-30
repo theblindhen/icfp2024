@@ -117,7 +117,7 @@ let hand_solutions9 =
       (Integer (big 0));
   ]
 
-let _random_mover n seed =
+let random_mover n seed =
   let_op (Integer seed) (fun seed ->
       app
         (app rec_op
@@ -125,8 +125,11 @@ let _random_mover n seed =
                 abs (fun i ->
                     if_op (eq_op i (Integer n)) (String "")
                       (concat_op
-                         (app Lambdaman_pack.decode_dirs (mult_op seed (add_op seed i)))
-                         (app r (add_op i (Integer (big 1)))))))))
+                         (app Lambdaman_pack.decode_dirs
+                            (add_op
+                               (Integer (big 1))
+                               (mult_op (Integer (big 4)) (mult_op seed (add_op seed i)))))
+                         (concat_op (String "$") (app r (add_op i (Integer (big 1))))))))))
         (Integer (big 0)))
 
 let hand_solutions =
@@ -134,7 +137,7 @@ let hand_solutions =
     [];
     [];
     [];
-    [];
+    [ (random_mover (big 3) (Bigint.of_string "45631193837190513134"), fun _ -> true) ];
     [
       ( String
           "RDLLLULURRULRRRRRDLRRDLRRDLLDRLLDRLLLLLLLULRRLULLURULRURURURRRRRRRRRULRRDDLLLRDRRDLRDDDLDLRRDDLULDLUDLLLLLLLLLULDLLURURLLURLUUUURULRRULLURRRRLD",
@@ -143,7 +146,11 @@ let hand_solutions =
     List.map
       (List.append hand_solutions6 (generate_hand_solutions6 ()))
       ~f:(fun x -> (x, validate_result6));
-    [];
+    [
+      ( random_mover (big 5000)
+          (Bigint.of_string "11376319153570422810653774824059613450159648771649"),
+        fun _ -> true );
+    ];
     List.map hand_solutions8 ~f:(fun s ->
         ( s,
           fun s ->
@@ -206,7 +213,9 @@ let () =
           (if !check then
              let res = Interpreter.eval sol in
              match res with
-             | String s -> if not (validator s) then printf "XXX Validation failed: %s\n" s
+             | String s ->
+                 printf "Result: %s\n" s;
+                 if not (validator s) then printf "XXX Validation failed: %s\n" s
              | _ -> printf "XXX Didn't evaluate to a string literal: %s\n" (Language.deparse res));
 
           if !write then
