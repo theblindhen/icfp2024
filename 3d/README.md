@@ -1,8 +1,8 @@
 # 3d tasks
 
-1. Compute factorial. Maybe like the tutorial example?
-2. Absolute value. Solved by counting from 0.
-3. Sign of x. Solved.
+1. Compute factorial. Solved by timeloop.
+2. Absolute value. Solved by moduleo.
+3. Sign of x. Solved inefficiently.
 4. Max of two numbers (can be negative). Subtract and sign.
 5. Least common multiple.
 6. Primality test. Similar to original abs solution.

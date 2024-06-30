@@ -16,7 +16,14 @@ let () =
     | [ _; a; b; input_ch ] -> (5, Bigint.of_string a, Bigint.of_string b, get_input input_ch)
     | _ -> failwith "Usage: run3D A B <ASCII_STRING or - for stdin>"
   in
-  let state = ref (ThreeD.init_state input a b) in
+  let grid_input =
+    let lines = String.split input ~on:'\n' in
+    let first_line = lines |> List.hd_exn in
+    if Stdlib.( = ) (String.prefix first_line 5) "solve" then
+      List.tl_exn lines |> String.concat ~sep:"\n"
+    else input
+  in
+  let state = ref (ThreeD.init_state grid_input a b) in
   printf "Initial state:\n%s" (ThreeD.dump_state !state);
   try
     for _ = 1 to iters do
