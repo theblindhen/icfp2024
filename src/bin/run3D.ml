@@ -25,14 +25,15 @@ let () =
   in
   let state = ref (ThreeD.init_state grid_input a b) in
   printf "Initial state:\n%s" (ThreeD.dump_state !state);
-  try
-    for _ = 1 to iters do
-      state := ThreeD.step !state;
-      printf "\n\n%s" (ThreeD.dump_state !state);
-      if Stdlib.( <> ) !state.return_value None then raise (FinishedExc !state.return_value)
-      else if not !state.is_changing then raise (FinishedExc None)
-      else ()
-    done
-  with
+  (try
+     for _ = 1 to iters do
+       state := ThreeD.step !state;
+       printf "\n\n%s" (ThreeD.dump_state !state);
+       if Stdlib.( <> ) !state.return_value None then raise (FinishedExc !state.return_value)
+       else if not !state.is_changing then raise (FinishedExc None)
+       else ()
+     done
+   with
   | FinishedExc None -> printf "Finished without return value\n"
-  | FinishedExc _ -> printf "DONE\n"
+  | FinishedExc _ -> printf "DONE\n");
+  printf "Simulation cost: %d\n" (ThreeD.cost !state)
