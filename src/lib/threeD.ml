@@ -166,6 +166,10 @@ let dump_state (state : state) : string =
   in
   time ^ return_value ^ grid_to_string_with_s state.grid state.s_pos
 
+let cost (state : state) =
+  let dimx, dimy = state.max_dims in
+  dimx * dimy * state.current_time
+
 let rec step (state : state) =
   (* make a hashmap of int*int -> new cell values *)
   if Stdlib.( <> ) state.return_value None then state
