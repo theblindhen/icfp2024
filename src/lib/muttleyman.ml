@@ -54,3 +54,6 @@ let boost_dirs boost_max prob dirs =
            repeat (String.of_char c) reps
          else String.of_char c)
   |> String.concat
+
+let double_dirs dirs =
+  dirs |> String.to_list |> List.map ~f:(fun c -> repeat (String.of_char c) 2) |> String.concat

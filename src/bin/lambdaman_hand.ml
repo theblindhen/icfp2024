@@ -183,15 +183,19 @@ let get_random_solutions dir level =
   let grid = Util.load_char_grid filename in
   let seed_len = 100 in
   let trials = 100 in
-  let boost_max = 1 in
+  let doubling = level > 10 && level < 17 in
+  let boost_max = 3 in
   let boost_prob = 0.8 in
   try
     printf "Trying to find solution at seed len %d%!" seed_len;
     for i = 1 to trials do
       printf ".%!";
       let state = Lambdaman_sim.init_state (Array.copy_matrix grid) in
-      let dirs = Muttleyman.random_moves (1_000_000 / boost_max * 2) in
-      let dirs = Muttleyman.boost_dirs boost_max boost_prob dirs in
+      let dirs =
+        Muttleyman.random_moves (1_000_000 / boost_max * 2)
+        |> (if doubling then Muttleyman.double_dirs else Fn.id)
+        |> Muttleyman.boost_dirs boost_max boost_prob
+      in
       let seed = Muttleyman.random_seed seed_len in
       (*   let dirs = Muttleyman.pseudo_repeat_random seed_len seed 950_000 in *)
       let dirs = String.prefix dirs 1_000_000 in
