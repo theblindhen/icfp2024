@@ -18,8 +18,7 @@ let hand_solutions6 =
             app double (app double x)));
     let_op
       (abs (fun a -> concat_op a (concat_op a a)))
-      (fun double ->
-        drop_op (Integer (Util.big 16)) (app double (app double (app double (String "RRRRRRRR")))));
+      (fun double -> app double (app double (app double (String "RRRRRRRR"))));
     let_op
       (abs (fun a -> concat_op a (concat_op (concat_op a a) (concat_op a a))))
       (fun mult -> app mult (app mult (String "RRRRRRRR")));
@@ -71,7 +70,29 @@ let generate_hand_solutions6 () =
       if power > 1 then let_op mult_op (fun mult -> drop_if size (rep power mult literal))
       else drop_if size (rep power mult_op literal))
 
-let validate_result6 res = String.equal res (String.make 200 'R')
+let validate_result6 res = String.is_prefix ~prefix:(String.make 200 'R') res
+
+let spiral chars n max =
+  let_op (String chars) (fun cs ->
+      app
+        (app rec_op
+           (abs (fun r ->
+                abs (fun x ->
+                    if_op
+                      (eq_op x (Integer (big max)))
+                      (String "")
+                      (concat_op
+                         (take_op
+                            (Integer (big 1))
+                            (drop_op
+                               (mod_op
+                                  (div_op x (Integer (big n)))
+                                  (Integer (big (String.length chars))))
+                               cs))
+                         (app r (add_op x (Integer (big 1)))))))))
+        (Integer (big 0)))
+
+let hand_solutions8 = [ spiral "DLUR" 100 500000 ]
 
 let hand_solutions9 =
   [
@@ -102,13 +123,19 @@ let hand_solutions =
     [];
     [];
     [];
-    [];
+    [ (spiral "DLUR" 100 999999, fun _ -> true) ];
     List.map
       (List.append hand_solutions6 (generate_hand_solutions6 ()))
       ~f:(fun x -> (x, validate_result6));
     [];
-    [];
+    List.map hand_solutions8 ~f:(fun s ->
+        ( s,
+          fun s ->
+            printf "%s\n" s;
+            true ));
     List.map hand_solutions9 ~f:(fun s -> (s, fun _ -> true));
+    [];
+    [ (spiral "DLUR" 100 999999, fun _ -> true) ];
   ]
 
 let get_hand_solutions level =
@@ -123,27 +150,47 @@ let get_random_solutions dir level =
   let _grid = Util.read_grid filename in
   None
 
+let check = ref false
+let dir = ref ""
+let random = ref false
+let write = ref false
+let submit = ref false
+
+let speclist =
+  [
+    ("--check", Arg.Set check, "Evaluate and check solutions (default: false)");
+    ("--dir", Arg.Set_string dir, "Map directory (default: current directory)");
+    ("--random", Arg.Set random, "Use random solutions");
+    ("--write", Arg.Set write, "Write solutions to file (default: false)");
+    ("--submit", Arg.Set submit, "Submit solutions to server (default: false)");
+  ]
+
+let usage_msg = "lambdaman_hand [--check] [--write] [--submit] [--dir <dir>] <level>"
+let level = ref 0
+let anon_fun l = level := Int.of_string l
+
 (* Main function *)
 let () =
-  let dir, level, use_random =
-    match Sys.get_argv () with
-    | [| _; dir; level |] -> (dir, Int.of_string level, false)
-    | [| _; "-r"; dir; level |] -> (dir, Int.of_string level, true)
-    | _ -> failwith (sprintf "Usage: %s [-r] <input_dir> <level>\n" (Sys.get_argv ()).(0))
-  in
+  Arg.parse speclist anon_fun usage_msg;
+  let dir, level, use_random = (!dir, !level, !random) in
   let sols = if use_random then get_random_solutions dir level else get_hand_solutions level in
   match sols with
   | None -> printf "No solution for level %d\n" level
   | Some sols ->
       List.iter sols ~f:(fun (sol, validator) ->
           let icfp = Language.deparse sol in
-          printf "%5d: %s\n" (String.length icfp) icfp;
-          (* printf "        %s\n" (Language.pp_as_lambda 50 sol); *)
-          let res = Interpreter.eval sol in
-          match res with
-          | String s ->
-              if validator s then
-                Solutions.write_solution "lambdaman" dir (Int.to_string level)
-                  (Language.deparse (wrap_prefix level sol))
-              else printf "XXX Didn't validate: %s\n" s
-          | _ -> printf "XXX Didn't evaluate to a string literal: %s\n" (Language.deparse res))
+          printf "%5d: %s\n%!" (String.length icfp) icfp;
+          (if !check then
+             let res = Interpreter.eval sol in
+             match res with
+             | String s -> if not (validator s) then printf "XXX Validation failed: %s\n" s
+             | _ -> printf "XXX Didn't evaluate to a string literal: %s\n" (Language.deparse res));
+
+          if !write then
+            Solutions.write_solution "lambdaman" dir (Int.to_string level)
+              (Language.deparse (wrap_prefix level sol));
+
+          if !submit then
+            match Communication.request_with_auth (Language.deparse (wrap_prefix level sol)) with
+            | Language.String s -> print_endline s
+            | _ -> print_endline "Failed to submit")
