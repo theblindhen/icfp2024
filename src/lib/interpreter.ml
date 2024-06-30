@@ -176,7 +176,6 @@ let rec eval_big_step (prg : Language.term) : term =
         v
 
 let eval (prg : term) : term =
-  printf "%s\n%!" (pp_as_lambda 50 prg);
   let rec eval' (prg : term) : term =
     let prg' = eval_step prg in
     if equal_term prg prg' then prg' else eval' prg'
