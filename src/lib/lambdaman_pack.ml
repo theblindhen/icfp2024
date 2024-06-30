@@ -17,8 +17,21 @@ let decode_dirs_body =
                (app decode_dir (mod_op arg (Integer (big 4))))
                (app rec_f (div_op arg (Integer (big 4)))))))
 
+(** May be called on any integer but is incapable of returning trailing Ls *)
+let decode_dirs_body_safe =
+  abs (fun rec_f ->
+      abs (fun arg ->
+          if_op
+            (eq_op arg (Integer (big 0)))
+            (String "")
+            (concat_op
+               (app decode_dir (mod_op arg (Integer (big 4))))
+               (app rec_f (div_op arg (Integer (big 4)))))))
+
 (** ICFP term for decoding integers to L/D/U/R efficiently *)
 let decode_dirs = app rec_op decode_dirs_body
+
+let decode_dirs_safe = app rec_op decode_dirs_body_safe
 
 let encode_dir dir =
   match dir with

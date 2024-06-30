@@ -68,7 +68,6 @@ let init_state grid =
   let lambdaman = find_chars grid 'L' |> List.hd_exn in
   let pills = find_chars grid '.' |> Hash_set.Poly.of_list in
   let ticks = 0 in
-  printf "Lambdaman at: %d %d\n" (fst lambdaman) (snd lambdaman);
   { grid; ticks; lambdaman; pills }
 
 let dump_state state =

@@ -125,39 +125,47 @@ let random_mover n seed =
                 abs (fun i ->
                     if_op (eq_op i (Integer n)) (String "")
                       (concat_op
-                         (app Lambdaman_pack.decode_dirs
-                            (add_op
-                               (Integer (big 1))
-                               (mult_op (Integer (big 4)) (mult_op seed (add_op seed i)))))
-                         (concat_op (String "$") (app r (add_op i (Integer (big 1))))))))))
+                         (app Lambdaman_pack.decode_dirs_safe (mult_op seed (add_op seed i)))
+                         (app r (add_op i (Integer (big 1)))))))))
         (Integer (big 0)))
 
 let hand_solutions =
   [
+    (* lvl 1 *)
     [];
+    (* lvl 2 *)
     [];
+    (* lvl 3 *)
     [];
-    [ (random_mover (big 3) (Bigint.of_string "45631193837190513134"), fun _ -> true) ];
+    (* lvl 4 *)
+    [ (random_mover (big 70000) (Bigint.of_string "456"), fun _ -> true) ];
+    (* lvl 5 *)
     [
       ( String
           "RDLLLULURRULRRRRRDLRRDLRRDLLDRLLDRLLLLLLLULRRLULLURULRURURURRRRRRRRRULRRDDLLLRDRRDLRDDDLDLRRDDLULDLUDLLLLLLLLLULDLLURURLLURLUUUURULRRULLURRRRLD",
         fun _ -> true );
     ];
+    (* lvl 6 *)
     List.map
       (List.append hand_solutions6 (generate_hand_solutions6 ()))
       ~f:(fun x -> (x, validate_result6));
+    (* lvl 7 *)
     [
       ( random_mover (big 5000)
           (Bigint.of_string "11376319153570422810653774824059613450159648771649"),
         fun _ -> true );
     ];
+    (* lvl 8 *)
     List.map hand_solutions8 ~f:(fun s ->
         ( s,
           fun s ->
             printf "%s\n" s;
             true ));
+    (* lvl 9 *)
     List.map hand_solutions9 ~f:(fun s -> (s, fun _ -> true));
-    [];
+    (* lvl 10 *)
+    [ (random_mover (big 48000) (Bigint.of_string "419253"), fun _ -> true) ];
+    (* lvl 11 *)
     [ (spiral "DLUR" 100 999999, fun _ -> true) ];
   ]
 
@@ -168,15 +176,32 @@ let get_hand_solutions level =
   then Some (List.nth_exn hand_solutions (level - 1))
   else None
 
+exception FoundSolution of Bigint.t * string * int
+
 let get_random_solutions dir level =
   let filename = dir ^ "/lambdaman" ^ Int.to_string level ^ ".txt" in
   let grid = Util.load_char_grid filename in
-  let state = Lambdaman_sim.init_state grid in
-  printf "Initial state:\n%s\n" (Lambdaman_sim.dump_state state);
-  let random_string = Muttleyman.pseudo_repeat_random 50 100_000 in
-  Lambdaman_sim.run_str state random_string;
-  printf "End state:\n%s\n" (Lambdaman_sim.dump_state state);
-  None
+  let seed_len = 50 in
+  try
+    printf "Trying to find solution at seed len %d%!" seed_len;
+    for _ = 1 to 100 do
+      printf ".%!";
+      let state = Lambdaman_sim.init_state (Array.copy_matrix grid) in
+      let seed = Muttleyman.random_seed seed_len in
+      let dirs = Muttleyman.pseudo_repeat_random seed_len seed 950_000 in
+      Lambdaman_sim.run_str state dirs;
+      if state.pills |> Hash_set.Poly.is_empty then
+        let rounds = (state.ticks / (seed_len * 2)) + 1 in
+        raise (FoundSolution (seed, dirs, rounds))
+    done;
+    None
+  with
+  | FoundSolution (seed, _dirs, rounds) ->
+      printf "FOUND SOLUTION:\n";
+      (* printf "Dirs:\n%s\n" dirs; *)
+      printf "Random seed:\n%s\n" (Bigint.to_string seed);
+      printf "Rounds needed: %d\n" rounds;
+      None
 
 let check = ref false
 let dir = ref ""
