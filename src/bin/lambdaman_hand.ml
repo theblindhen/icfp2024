@@ -117,7 +117,7 @@ let hand_solutions9 =
       (Integer (big 0));
   ]
 
-let random_mover n seed =
+let _random_mover n seed =
   let_op (Integer seed) (fun seed ->
       app
         (app rec_op
