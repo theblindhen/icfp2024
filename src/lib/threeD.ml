@@ -91,6 +91,7 @@ type state = {
   current_time : int;
   current_ticks : int;
   return_value : Bigint.t option;
+  is_changing : bool;
 }
 
 let parse_grid (input : string) : parse_grid =
@@ -153,7 +154,8 @@ let init_state (input : string) (a : Bigint.t) (b : Bigint.t) =
   let current_time = 0 in
   let current_ticks = 0 in
   let return_value = None in
-  { grid; s_pos; snapshots; max_dims; current_time; current_ticks; return_value }
+  let is_changing = true in
+  { grid; s_pos; snapshots; max_dims; current_time; current_ticks; return_value; is_changing }
 
 let dump_state (state : state) : string =
   let time = sprintf "Time: %6d Ticks: %6d\n" state.current_time state.current_ticks in
@@ -300,6 +302,7 @@ let rec step (state : state) =
           current_time = state.current_time + 1;
           current_ticks = state.current_ticks + 1;
           return_value = !return_value;
+          is_changing = Hashtbl.length actions > 0;
         }
     | None, Some (dt, warps) ->
         (* apply timewarp *)

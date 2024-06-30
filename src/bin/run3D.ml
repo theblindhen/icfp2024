@@ -29,7 +29,10 @@ let () =
     for _ = 1 to iters do
       state := ThreeD.step !state;
       printf "\n\n%s" (ThreeD.dump_state !state);
-      if Stdlib.( <> ) !state.return_value None then raise (FinishedExc !state.return_value) else ()
+      if Stdlib.( <> ) !state.return_value None then raise (FinishedExc !state.return_value)
+      else if not !state.is_changing then raise (FinishedExc None)
+      else ()
     done
   with
-  | FinishedExc _ret -> printf "Done\n"
+  | FinishedExc None -> printf "Finished without return value\n"
+  | FinishedExc _ -> printf "DONE\n"
