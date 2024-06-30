@@ -9,7 +9,7 @@ Christoffer R. Nielsen,
 Johan S. H. Rosenkilde, and
 Kasper Svendsen
 
-All in Copenhagen, Denmark
+Jonas, Johan and Kasper in Aarhus, Denmark. Christoffer in Dubai, UAE
 
 How to build
 ------------
