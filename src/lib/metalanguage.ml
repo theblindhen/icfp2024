@@ -29,4 +29,4 @@ let iToS t = Unary (IntToString, t)
 
 (* ICFP term recursion operator *)
 (* forall alpha. (alpha -> alpha) -> alpha *)
-let rec_op = abs (fun f -> app (abs (fun x -> app f (app x x))) (abs (fun x -> app f (app x x))))
+let rec_op = abs (fun f -> let_op (abs (fun x -> app f (app x x))) (fun x -> app x x))

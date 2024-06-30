@@ -119,15 +119,18 @@ let hand_solutions9 =
 
 let random_mover n seed =
   let_op (Integer seed) (fun seed ->
-      app
-        (app rec_op
-           (abs (fun r ->
-                abs (fun i ->
-                    if_op (eq_op i (Integer n)) (String "")
-                      (concat_op
-                         (app Lambdaman_pack.decode_dirs_safe (mult_op seed (add_op seed i)))
-                         (app r (add_op i (Integer (big 1)))))))))
-        (Integer (big 0)))
+      let_op rec_op (fun rec_op ->
+          app
+            (app rec_op
+               (abs (fun r ->
+                    abs (fun i ->
+                        if_op (eq_op i (Integer n)) (String "")
+                          (concat_op
+                             (app
+                                (app rec_op Lambdaman_pack.decode_dirs_body_safe)
+                                (mult_op seed (add_op seed i)))
+                             (app r (add_op i (Integer (big 1)))))))))
+            (Integer (big 0))))
 
 let hand_solutions =
   [
