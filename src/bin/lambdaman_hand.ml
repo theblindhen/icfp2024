@@ -189,30 +189,31 @@ exception FoundSolution of Bigint.t list * string * int
 let get_random_solutions dir level windowed =
   let filename = dir ^ "/lambdaman" ^ Int.to_string level ^ ".txt" in
   let grid = Util.load_char_grid filename in
-  let seed_len = 1_000 in
-  let trials = 1000 in
+  let seed_len = 100 in
+  let trials = 10_000 in
+  let time = 1_000_000 in
   let doubling = level > 10 && level < 17 in
   let _boost_max = 3 in
   let _boost_prob = 0.8 in
   let seed_generator () = Muttleyman.random_seed seed_len in
   let path_generator len seed =
     let ilen = if doubling then len / 2 else len in
-    Muttleyman.pseudo_repeat_random seed_len seed ilen
+    Muttleyman.pseudo_repeat_random_linear_cong seed_len seed ilen
     |> if doubling then Muttleyman.double_path else Fn.id
-    (* Muttleyman.random_moves len |> if doubling then Muttleyman.double_path else Fn.id *)
+    (* Muttleyman.random_moves ilen |> if doubling then Muttleyman.double_path else Fn.id *)
     (* |> Muttleyman.boost_path boost_max boost_prob *)
   in
   try
-    (if not windowed then (
+    (if windowed = 1 then (
        printf "Trying to find solution at seed len %d%!\n" seed_len;
        for i = 1 to trials do
          printf ".%!";
          let state = Lambdaman_sim.init_state (Array.copy_matrix grid) in
          let seed = seed_generator () in
-         let path = path_generator 1_000_000 seed in
+         let path = path_generator time seed in
          let path =
-           if String.length path > 1_000_000 then printf "WARNING: path too long, truncating\n";
-           String.prefix path 1_000_000
+           if String.length path > time then printf "WARNING: path too long, truncating\n";
+           String.prefix path time
          in
          Lambdaman_sim.run_str state path;
          if state.pills |> Hash_set.Poly.is_empty then
@@ -223,15 +224,16 @@ let get_random_solutions dir level windowed =
            printf "Really, there was no solution\n")
        done)
      else
-       let path_generator = path_generator 250_000 in
+       let path_generator = path_generator (time / windowed) in
        printf "Going for a windowed solution with seed len %d%!\n" seed_len;
        let state = Lambdaman_sim.init_state (Array.copy_matrix grid) in
        printf "Lambdaman in (%d, %d)\n" (fst state.lambdaman) (snd state.lambdaman);
-       match Muttleyman.window_seeder state seed_generator path_generator trials with
+       match Muttleyman.window_seeder windowed state seed_generator path_generator trials with
        | None -> ()
-       | Some windows_and_seeds ->
+       | Some seeds ->
            printf "I think I found a solution!";
-           let seeds = List.map windows_and_seeds ~f:snd in
+           printf "Random seeds:\n%s\n"
+             (seeds |> List.map ~f:Bigint.to_string |> String.concat ~sep:" --- ");
            let path = seeds |> List.map ~f:path_generator |> String.concat in
            let state = Lambdaman_sim.init_state (Array.copy_matrix grid) in
            Lambdaman_sim.run_str state path;
@@ -256,7 +258,7 @@ let random = ref false
 let write = ref false
 let submit = ref false
 let sim = ref false
-let windowed = ref false
+let windowed = ref 1
 
 let speclist =
   [
@@ -266,7 +268,7 @@ let speclist =
     ("--write", Arg.Set write, "Write solutions to file (default: false)");
     ("--submit", Arg.Set submit, "Submit solutions to server (default: false)");
     ("--sim", Arg.Set sim, "Simulate submission (default: false)");
-    ("--windowed", Arg.Set windowed, "Use the windowed strategy for random (default: false)");
+    ("--windowed", Arg.Set_int windowed, "The number of windows for random (default: 1)");
   ]
 
 let usage_msg = "lambdaman_hand [--check] [--write] [--submit] [--dir <dir>] <level>"

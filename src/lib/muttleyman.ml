@@ -46,6 +46,20 @@ let pseudo_repeat_random seed_len seed total =
   in
   aux [] 0 |> List.rev |> String.concat
 
+let pseudo_repeat_random_linear_cong seed_len seed total =
+  (* Number of repetitions *)
+  let a = Bigint.of_int 1664525 in
+  let c = Bigint.of_int 1013904223 in
+  let reps = total / seed_len in
+  let rec aux acc rnd i =
+    if i = reps then acc
+    else
+      let num = rnd in
+      let rnd = Bigint.(((a * rnd) + c) % seed) in
+      aux (decode_path num :: acc) rnd (i + 1)
+  in
+  aux [] seed 0 |> List.rev |> String.concat
+
 let boost_path boost_max prob path =
   path
   |> String.to_list
@@ -61,66 +75,100 @@ let double_path path =
 
 type window = (int * int) * (int * int)
 
-let get_windows state =
-  (* Get quadrants *)
-  let grid = state.grid in
-  let x_mid = Array.length grid.(0) / 2 in
-  let y_mid = Array.length grid / 2 in
-  let x_max, y_max = (Array.length grid.(0), Array.length grid) in
-  let windows =
+let get_windows n_windows state =
+  let (xmin, ymin), (xmax, ymax) =
+    ((0, 0), (Array.length state.grid.(0), Array.length state.grid))
+  in
+  let quadrants (xmin, ymin) (xmax, ymax) =
+    let xmid = (xmin + xmax) / 2 in
+    let ymid = (ymin + ymax) / 2 in
     [
-      ((0, 0), (x_mid, y_mid));
-      ((x_mid, 0), (x_max, y_mid));
-      ((0, y_mid), (x_mid, y_max));
-      ((x_mid, y_mid), (x_max, y_max));
+      ((xmin, ymin), (xmid, ymid));
+      ((xmid, ymin), (xmax, ymid));
+      ((xmin, ymid), (xmid, ymax));
+      ((xmid, ymid), (xmax, ymax));
     ]
   in
-  (* Order the windows so that the one with lambdaman in is first *)
-  let lambdaman = state.lambdaman in
-  List.sort windows ~compare:(fun ((x1, y1), (x2, y2)) _ ->
-      (if x1 <= fst lambdaman && x2 > fst lambdaman then -1 else 0)
-      + if y1 <= snd lambdaman && y2 > snd lambdaman then -1 else 0)
+  match n_windows with
+  | 4 -> quadrants (xmin, ymin) (xmax, ymax)
+  | 8 ->
+      let xmid = (xmin + xmax) / 2 in
+      let ymid = (ymin + ymax) / 2 in
+      quadrants (xmin, ymin) (xmid, ymid)
+      @ quadrants (xmid, ymin) (xmax, ymid)
+      @ quadrants (xmin, ymid) (xmid, ymax)
+      @ quadrants (xmid, ymid) (xmax, ymax)
+  | _ -> failwith "Unsupported number of windows"
+
+let window_distance (x, y) ((x1, y1), (x2, y2)) =
+  (* Manhattan distance from point to window *)
+  let dx = if x < x1 then x1 - x else if x >= x2 then x - x2 + 1 else 0 in
+  let dy = if y < y1 then y1 - y else if y >= y2 then y - y2 + 1 else 0 in
+  dx + dy
 
 exception FoundSolution of (state * Bigint.t)
 
-let find_good_seed window init_state seed_generator generator trials =
+let pills_in_window ((x1, y1), (x2, y2)) state =
+  state.pills
+  |> Hash_set.Poly.filter ~f:(fun (x, y) -> x >= x1 && x < x2 && y >= y1 && y < y2)
+  |> Hash_set.Poly.length
+
+let find_good_seed window init_state seed_generator generator =
   (* At the state we're currently at, try to find a good seed for the generator
    * which results in the window being emptied of pills. *)
-  let (x1, y1), (x2, y2) = window in
-  printf "Finding seed for window (%d, %d) to (%d, %d)\n%!" x1 y1 x2 y2;
-  printf "State\n%s" (dump_state init_state);
-  let pills_in_window state =
-    state.pills
-    |> Hash_set.Poly.filter ~f:(fun (x, y) -> x >= x1 && x < x2 && y >= y1 && y < y2)
-    |> Hash_set.Poly.length
-  in
   try
-    for _ = 1 to trials do
-      printf "Lambdaman at %d, %d and %d pills left in window \n%!" (fst init_state.lambdaman)
-        (snd init_state.lambdaman) (pills_in_window init_state);
-      let seed = seed_generator () in
-      let path = generator seed in
-      let state = duplicate_state init_state in
-      run_str state path;
-      if pills_in_window state = 0 then raise (FoundSolution (state, seed))
-    done;
+    let seed = seed_generator () in
+    let path = generator seed in
+    let state = duplicate_state init_state in
+    run_str state path;
+    if pills_in_window window state = 0 then raise (FoundSolution (state, seed));
     None
   with
   | FoundSolution (state, seed) -> Some (state, seed)
 
-let window_seeder init_state seed_generator generator trials =
-  let windows = get_windows init_state in
-  let result =
-    List.fold windows
-      ~init:(Some (init_state, []))
-      ~f:(fun res window ->
-        match res with
+let window_seeder n_windows init_state seed_generator generator trials =
+  let windows = get_windows n_windows init_state in
+  let rec aux (state, acc_seeds) windows =
+    match windows with
+    | [] -> Some (List.rev acc_seeds)
+    | windows -> (
+        let window, rest =
+          let distances = List.map windows ~f:(window_distance state.lambdaman) in
+          let min_dist = List.min_elt distances ~compare:Int.compare |> Option.value_exn in
+          let cur_window =
+            List.find_exn windows ~f:(fun w -> window_distance state.lambdaman w = min_dist)
+          in
+          let rest = List.filter windows ~f:(fun w -> Stdlib.(w <> cur_window)) in
+          (cur_window, rest)
+        in
+        printf "Finding seed for window (%d, %d) to (%d, %d)\n%!"
+          (fst (fst window))
+          (snd (fst window))
+          (fst (snd window))
+          (snd (snd window));
+        printf "State\n%s" (dump_state state);
+        printf "Lambdaman at %d, %d and %d pills left in window \n%!" (fst state.lambdaman)
+          (snd state.lambdaman) (pills_in_window window state);
+        (* Find 5 Some seeds for the window *)
+        let reso =
+          Seq.init trials (fun i ->
+              if Int.(i % 10 = 0) then printf "Trial %d\n%!" i;
+              match find_good_seed window state seed_generator generator with
+              | None -> None
+              | Some (state', seed) ->
+                  printf "Found seed %s\n%!" (Bigint.to_string seed);
+                  Some (state', seed))
+          |> Seq.filter_map Fn.id
+          |> Seq.take 1
+          |> Stdlib.List.of_seq
+          |> List.sort ~compare:(fun (st1, _) (st2, _) ->
+                 Int.compare (Hash_set.Poly.length st1.pills) (Hash_set.Poly.length st2.pills))
+          |> List.hd
+        in
+        match reso with
         | None -> None
-        | Some (state, seeds) -> (
-            match find_good_seed window state seed_generator generator trials with
-            | None -> None
-            | Some (state', seed) -> Some (state', seed :: seeds)))
+        | Some (state', seed) -> aux (state', seed :: acc_seeds) rest)
   in
-  match result with
+  match aux (init_state, []) windows with
   | None -> None
-  | Some (_state, seeds) -> Some (List.zip_exn windows (List.rev seeds))
+  | Some seeds -> Some seeds
