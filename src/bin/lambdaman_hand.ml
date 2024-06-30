@@ -123,7 +123,11 @@ let hand_solutions =
     [];
     [];
     [];
-    [ (spiral "DLUR" 100 999999, fun _ -> true) ];
+    [
+      ( String
+          "RDLLLULURRULRRRRRDLRRDLRRDLLDRLLDRLLLLLLLULRRLULLURULRURURURRRRRRRRRULRRDDLLLRDRRDLRDDDLDLRRDDLULDLUDLLLLLLLLLULDLLURURLLURLUUUURULRRULLURRRRLD",
+        fun _ -> true );
+    ];
     List.map
       (List.append hand_solutions6 (generate_hand_solutions6 ()))
       ~f:(fun x -> (x, validate_result6));
@@ -160,6 +164,7 @@ let dir = ref ""
 let random = ref false
 let write = ref false
 let submit = ref false
+let sim = ref false
 
 let speclist =
   [
@@ -168,6 +173,7 @@ let speclist =
     ("--random", Arg.Set random, "Use random solutions");
     ("--write", Arg.Set write, "Write solutions to file (default: false)");
     ("--submit", Arg.Set submit, "Submit solutions to server (default: false)");
+    ("--sim", Arg.Set sim, "Simulate submission (default: false)");
   ]
 
 let usage_msg = "lambdaman_hand [--check] [--write] [--submit] [--dir <dir>] <level>"
