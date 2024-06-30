@@ -22,6 +22,7 @@ let div_op t1 t2 = Binary (Div, t1, t2)
 let sub_op t1 t2 = Binary (Sub, t1, t2)
 let concat_op t1 t2 = Binary (StringConcat, t1, t2)
 let sToI t = Unary (StringToInt, t)
+let iToS t = Unary (IntToString, t)
 
 (* ICFP term recursion operator *)
 (* forall alpha. (alpha -> alpha) -> alpha *)

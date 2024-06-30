@@ -31,6 +31,12 @@
  (libraries lib core))
 
 (executable
+ (public_name lambdaman_hand)
+ (name lambdaman_hand)
+ (modules lambdaman_hand)
+ (libraries lib core))
+
+(executable
  (public_name spaceship)
  (name spaceship)
  (modules spaceship)

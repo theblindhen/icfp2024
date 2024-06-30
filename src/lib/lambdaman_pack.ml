@@ -56,6 +56,17 @@ let repeat_body =
 (* ICFP term for repeating a string n times *)
 let repeat = app rec_op repeat_body
 
+let repeat_r_body =
+  abs (fun rec_f ->
+      abs (fun n ->
+          if_op
+            (eq_op n (Integer (big 0)))
+            (String "")
+            (concat_op (String "R") (app rec_f (sub_op n (Integer (big 1)))))))
+
+(* ICFP term for repeating a string n times *)
+let repeat_r = app rec_op repeat_r_body
+
 exception Rep of int * int
 
 let find_good_rep dirs =
@@ -99,6 +110,11 @@ let%test_unit "decode_dirs" =
   [%test_eq: term]
     (eval (app decode_dirs (Integer (encode_dirs "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD"))))
     (String "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD")
+
+let%test_unit "repeat" =
+  [%test_eq: term] (eval (app (app repeat (String "a")) (Integer (big 3)))) (String "aaa");
+  [%test_eq: term] (eval (app (app repeat (String "ab")) (Integer (big 3)))) (String "ababab");
+  [%test_eq: term] (eval (app (app repeat (String "ab")) (Integer (big 0)))) (String "")
 
 let%test_unit "repeat" =
   [%test_eq: term] (eval (app (app repeat (String "a")) (Integer (big 3)))) (String "aaa");
