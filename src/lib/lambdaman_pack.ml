@@ -13,9 +13,9 @@ let decode_dirs_body =
           if_op
             (eq_op arg (Integer (big 1)))
             (String "")
-            (let_op
+            (concat_op
                (app decode_dir (mod_op arg (Integer (big 4))))
-               (fun c -> concat_op c (app rec_f (div_op arg (Integer (big 4))))))))
+               (app rec_f (div_op arg (Integer (big 4)))))))
 
 (** ICFP term for decoding integers to L/D/U/R efficiently *)
 let decode_dirs = app rec_op decode_dirs_body
