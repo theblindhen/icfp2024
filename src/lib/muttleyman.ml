@@ -59,8 +59,6 @@ let boost_path boost_max prob path =
 let double_path path =
   path |> String.to_list |> List.map ~f:(fun c -> repeat (String.of_char c) 2) |> String.concat
 
-exception FoundSolution of Bigint.t
-
 type window = (int * int) * (int * int)
 
 let get_windows state =
@@ -80,34 +78,49 @@ let get_windows state =
   (* Order the windows so that the one with lambdaman in is first *)
   let lambdaman = state.lambdaman in
   List.sort windows ~compare:(fun ((x1, y1), (x2, y2)) _ ->
-      (if x1 <= fst lambdaman && x2 > fst lambdaman then 1 else 0)
-      + if y1 <= snd lambdaman && y2 > snd lambdaman then 1 else 0)
+      (if x1 <= fst lambdaman && x2 > fst lambdaman then -1 else 0)
+      + if y1 <= snd lambdaman && y2 > snd lambdaman then -1 else 0)
+
+exception FoundSolution of (state * Bigint.t)
 
 let find_good_seed window init_state seed_generator generator trials =
   (* At the state we're currently at, try to find a good seed for the generator
    * which results in the window being emptied of pills. *)
   let (x1, y1), (x2, y2) = window in
   printf "Finding seed for window (%d, %d) to (%d, %d)\n%!" x1 y1 x2 y2;
+  printf "State\n%s" (dump_state init_state);
+  let pills_in_window state =
+    state.pills
+    |> Hash_set.Poly.filter ~f:(fun (x, y) -> x >= x1 && x < x2 && y >= y1 && y < y2)
+    |> Hash_set.Poly.length
+  in
   try
     for _ = 1 to trials do
+      printf "Lambdaman at %d, %d and %d pills left in window \n%!" (fst init_state.lambdaman)
+        (snd init_state.lambdaman) (pills_in_window init_state);
       let seed = seed_generator () in
       let path = generator seed in
       let state = duplicate_state init_state in
       run_str state path;
-      if
-        state.pills
-        |> Hash_set.Poly.filter ~f:(fun (x, y) -> x >= x1 && x < x2 && y >= y1 && y < y2)
-        |> Hash_set.Poly.is_empty
-      then raise (FoundSolution seed)
+      if pills_in_window state = 0 then raise (FoundSolution (state, seed))
     done;
     None
   with
-  | FoundSolution seed -> Some seed
+  | FoundSolution (state, seed) -> Some (state, seed)
 
 let window_seeder init_state seed_generator generator trials =
   let windows = get_windows init_state in
-  let seeds =
-    List.map windows ~f:(fun window ->
-        find_good_seed window init_state seed_generator generator trials)
+  let result =
+    List.fold windows
+      ~init:(Some (init_state, []))
+      ~f:(fun res window ->
+        match res with
+        | None -> None
+        | Some (state, seeds) -> (
+            match find_good_seed window state seed_generator generator trials with
+            | None -> None
+            | Some (state', seed) -> Some (state', seed :: seeds)))
   in
-  List.zip_exn windows seeds
+  match result with
+  | None -> None
+  | Some (_state, seeds) -> Some (List.zip_exn windows (List.rev seeds))
