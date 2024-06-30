@@ -5,14 +5,7 @@ open Interpreter
 open Util
 
 let decode_dir =
-  abs (fun dir ->
-      if_op
-        (eq_op dir (Integer (big 0)))
-        (String "L")
-        (if_op
-           (eq_op dir (Integer (big 1)))
-           (String "D")
-           (if_op (eq_op dir (Integer (big 2))) (String "U") (String "R"))))
+  abs (fun dir -> let_op (String "LDUR") (fun cs -> take_op (Integer (big 1)) (drop_op dir cs)))
 
 let decode_dirs_body =
   abs (fun rec_f ->
@@ -20,12 +13,9 @@ let decode_dirs_body =
           if_op
             (eq_op arg (Integer (big 1)))
             (String "")
-            (let_op
-               (mod_op arg (Integer (big 4)))
-               (fun i ->
-                 let_op
-                   (div_op arg (Integer (big 4)))
-                   (fun r -> let_op (app decode_dir i) (fun c -> concat_op c (app rec_f r)))))))
+            (concat_op
+               (app decode_dir (mod_op arg (Integer (big 4))))
+               (app rec_f (div_op arg (Integer (big 4)))))))
 
 (** ICFP term for decoding integers to L/D/U/R efficiently *)
 let decode_dirs = app rec_op decode_dirs_body
