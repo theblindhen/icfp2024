@@ -4,8 +4,7 @@ open Metalanguage
 open Interpreter
 open Util
 
-let decode_dir =
-  abs (fun dir -> let_op (String "LDUR") (fun cs -> take_op (Integer (big 1)) (drop_op dir cs)))
+let decode_dir dir = take_op (Integer (big 1)) (drop_op dir (String "LDUR"))
 
 let decode_dirs_body =
   abs (fun rec_f ->
@@ -14,7 +13,7 @@ let decode_dirs_body =
             (eq_op arg (Integer (big 1)))
             (String "")
             (concat_op
-               (app decode_dir (mod_op arg (Integer (big 4))))
+               (decode_dir (mod_op arg (Integer (big 4))))
                (app rec_f (div_op arg (Integer (big 4)))))))
 
 (** May be called on any integer but is incapable of returning trailing Ls *)
@@ -25,7 +24,7 @@ let decode_dirs_body_safe =
             (eq_op arg (Integer (big 0)))
             (String "")
             (concat_op
-               (app decode_dir (mod_op arg (Integer (big 4))))
+               (decode_dir (mod_op arg (Integer (big 4))))
                (app rec_f (div_op arg (Integer (big 4)))))))
 
 (** ICFP term for decoding integers to L/D/U/R efficiently *)
