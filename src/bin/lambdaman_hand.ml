@@ -2,32 +2,27 @@ open Core
 open Lib
 open Language
 open Metalanguage
+open Util
 
 let wrap_prefix level term = concat_op (String ("solve lambdaman" ^ Int.to_string level ^ " ")) term
 
 let hand_solutions6 =
   [
-    wrap_prefix 6
-      (let_op
-         (abs (fun a -> concat_op a (concat_op (concat_op a a) (concat_op a a))))
-         (fun mult -> app mult (app mult (String "RRRRRRRR"))));
-    wrap_prefix 6
-      (let_op
-         (abs (fun a -> concat_op a a))
-         (fun double ->
-           let_op (String "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR") (fun x ->
-               app double (app double x))));
-    wrap_prefix 6
-      (let_op
-         (abs (fun a -> concat_op a (concat_op a a)))
-         (fun double ->
-           drop_op
-             (Integer (Util.big 16))
-             (app double (app double (app double (String "RRRRRRRR"))))));
-    wrap_prefix 6
-      (let_op
-         (abs (fun a -> concat_op a (concat_op (concat_op a a) (concat_op a a))))
-         (fun mult -> app mult (app mult (String "RRRRRRRR"))));
+    let_op
+      (abs (fun a -> concat_op a (concat_op (concat_op a a) (concat_op a a))))
+      (fun mult -> app mult (app mult (String "RRRRRRRR")));
+    let_op
+      (abs (fun a -> concat_op a a))
+      (fun double ->
+        let_op (String "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR") (fun x ->
+            app double (app double x)));
+    let_op
+      (abs (fun a -> concat_op a (concat_op a a)))
+      (fun double ->
+        drop_op (Integer (Util.big 16)) (app double (app double (app double (String "RRRRRRRR")))));
+    let_op
+      (abs (fun a -> concat_op a (concat_op (concat_op a a) (concat_op a a))))
+      (fun mult -> app mult (app mult (String "RRRRRRRR")));
   ]
 
 let mults =
@@ -73,14 +68,33 @@ let generate_hand_solutions6 () =
   List.map specs ~f:(fun (size, ((mult, power), lit_length)) ->
       let mult_op = List.nth_exn mults mult in
       let literal = String (String.make lit_length 'R') in
-      if power > 1 then
-        wrap_prefix 6 (let_op mult_op (fun mult -> drop_if size (rep power mult literal)))
-      else wrap_prefix 6 (drop_if size (rep power mult_op literal)))
+      if power > 1 then let_op mult_op (fun mult -> drop_if size (rep power mult literal))
+      else drop_if size (rep power mult_op literal))
 
-let validate_result6 res =
-  String.equal res
-    "solve lambdaman6 \
-     RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR"
+let validate_result6 res = String.equal res (String.make 200 'R')
+
+let hand_solutions9 =
+  [
+    (* let rec move x =
+       if x = (50 * 50) - 1 then ""
+       else (if x % 50 = 49 then "D" else if x % 100 < 50 then "R" else "L") ^ move (x + 1) *)
+    app
+      (app rec_op
+         (abs (fun r ->
+              abs (fun x ->
+                  if_op
+                    (eq_op x (Integer (big ((50 * 50) - 1))))
+                    (String "")
+                    (concat_op
+                       (if_op
+                          (eq_op (mod_op x (Integer (big 50))) (Integer (big 49)))
+                          (String "D")
+                          (if_op
+                             (lt_op (mod_op x (Integer (big 100))) (Integer (big 50)))
+                             (String "R") (String "L")))
+                       (app r (add_op x (Integer (big 1)))))))))
+      (Integer (big 0));
+  ]
 
 let hand_solutions =
   [
@@ -92,6 +106,9 @@ let hand_solutions =
     List.map
       (List.append hand_solutions6 (generate_hand_solutions6 ()))
       ~f:(fun x -> (x, validate_result6));
+    [];
+    [];
+    List.map hand_solutions9 ~f:(fun s -> (s, fun _ -> true));
   ]
 
 (* Main function *)
@@ -109,11 +126,13 @@ let () =
       List.iter sols ~f:(fun (sol, validator) ->
           let icfp = Language.deparse sol in
           printf "%5d: %s\n" (String.length icfp) icfp;
+          (* printf "        %s\n" (Language.pp_as_lambda 50 sol); *)
           let res = Interpreter.eval sol in
           match res with
           | String s ->
               if validator s then
-                Solutions.write_solution "lambdaman" dir (Int.to_string level) icfp
+                Solutions.write_solution "lambdaman" dir (Int.to_string level)
+                  (Language.deparse (wrap_prefix level sol))
               else printf "XXX Didn't validate: %s\n" s
           | _ -> printf "XXX Didn't evaluate to a string literal: %s\n" (Language.deparse res))
     else printf "No handwritten solution for level %d\n" level
