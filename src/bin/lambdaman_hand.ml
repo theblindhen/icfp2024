@@ -362,10 +362,10 @@ let get_hand_solutions level =
 
 exception FoundSolution of Bigint.t list * string * int
 
-let get_random_solutions dir level seed_len windowed eager =
+let get_random_solutions dir level seed_len windowed eager eager_factor =
   let filename = dir ^ "/lambdaman" ^ Int.to_string level ^ ".txt" in
   let grid = Util.load_char_grid filename in
-  let trials = 500 in
+  let trials = 250 in
   let time = 1_000_000 in
   let doubling = level > 10 && level < 17 in
   let _boost_max = 3 in
@@ -402,7 +402,7 @@ let get_random_solutions dir level seed_len windowed eager =
        let state = Lambdaman_sim.init_state (Array.copy_matrix grid) in
        printf "Lambdaman in (%d, %d)\n" (fst state.lambdaman) (snd state.lambdaman);
        if eager then (
-         let path_generator = path_generator (time / 8) in
+         let path_generator = path_generator (time / eager_factor) in
          printf "Eager punter going for a punt with seed len %d%!\n" seed_len;
          match Muttleyman.eager_punter state seed_generator path_generator time trials with
          | None -> ()
@@ -440,8 +440,12 @@ let get_random_solutions dir level seed_len windowed eager =
   | FoundSolution (seeds, _path, ticks) ->
       printf "FOUND SOLUTION:\n";
       (* printf "path:\n%s\n" path; *)
-      printf "Random seeds:\n%s\n"
-        (seeds |> List.map ~f:Bigint.to_string |> String.concat ~sep:" --- ");
+      printf "Eager factor: %d" eager_factor;
+      printf "Random seeds:\n[%s]\n"
+        (seeds
+        |> List.map ~f:Bigint.to_string
+        |> List.map ~f:(fun n -> "\"" ^ n ^ "\"")
+        |> String.concat ~sep:"; ");
       printf "Level %d: Ticks produced: %d -- %d seeds %s\n" level ticks (List.length seeds)
         (if ticks > 1_000_000 then " (Obs: Needs drop!)" else "");
       Some []
@@ -455,6 +459,7 @@ let sim = ref false
 let windowed = ref 1
 let eager = ref false
 let seed_len = ref 25
+let eager_factor = ref 8
 
 let speclist =
   [
@@ -466,6 +471,7 @@ let speclist =
     ("--sim", Arg.Set sim, "Simulate submission (default: false)");
     ("--windowed", Arg.Set_int windowed, "The number of windows for random (default: 1)");
     ("--eager", Arg.Set eager, "Use the eager punter for random (default: false)");
+    ("--eager_factor", Arg.Set eager, "Use this eager factor for eager random (default: 8)");
     ("--seed_len", Arg.Set_int seed_len, "Set the seed length for random (default: 25)");
   ]
 
@@ -478,7 +484,7 @@ let () =
   Arg.parse speclist anon_fun usage_msg;
   let dir, level, use_random = (!dir, !level, !random) in
   let sols =
-    if use_random then get_random_solutions dir level !seed_len !windowed !eager
+    if use_random then get_random_solutions dir level !seed_len !windowed !eager !eager_factor
     else get_hand_solutions level
   in
   match sols with
