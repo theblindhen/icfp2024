@@ -15,6 +15,7 @@ let app t1 t2 = Binary (Apply, t1, t2)
 let let_op expr body = app (abs body) expr
 let if_op cond t e = If (cond, t, e)
 let add_op t1 t2 = Binary (Add, t1, t2)
+let mult_op t1 t2 = Binary (Mul, t1, t2)
 let eq_op t1 t2 = Binary (Equal, t1, t2)
 let take_op t1 t2 = Binary (Take, t1, t2)
 let drop_op t1 t2 = Binary (Drop, t1, t2)
@@ -28,4 +29,4 @@ let iToS t = Unary (IntToString, t)
 
 (* ICFP term recursion operator *)
 (* forall alpha. (alpha -> alpha) -> alpha *)
-let rec_op = abs (fun f -> app (abs (fun x -> app f (app x x))) (abs (fun x -> app f (app x x))))
+let rec_op = abs (fun f -> let_op (abs (fun x -> app f (app x x))) (fun x -> app x x))

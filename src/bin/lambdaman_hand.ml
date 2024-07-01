@@ -117,24 +117,63 @@ let hand_solutions9 =
       (Integer (big 0));
   ]
 
+let random_mover n seed =
+  let_op (Integer seed) (fun seed ->
+      let_op rec_op (fun rec_op ->
+          app
+            (app rec_op
+               (abs (fun r ->
+                    abs (fun i ->
+                        if_op (eq_op i (Integer n)) (String "")
+                          (concat_op
+                             (app
+                                (app rec_op Lambdaman_pack.decode_dirs_body_safe)
+                                (mult_op seed (add_op seed i)))
+                             (app r (add_op i (Integer (big 1)))))))))
+            (Integer (big 0))))
+
 let hand_solutions =
   [
+    (* lvl 1 *)
     [];
+    (* lvl 2 *)
     [];
+    (* lvl 3 *)
     [];
-    [];
-    [ (spiral "DLUR" 100 999999, fun _ -> true) ];
+    (* lvl 4 *)
+    [ (random_mover (big 70000) (Bigint.of_string "456"), fun _ -> true) ];
+    (* lvl 5 *)
+    [
+      ( String
+          "RDLLLULURRULRRRRRDLRRDLRRDLLDRLLDRLLLLLLLULRRLULLURULRURURURRRRRRRRRULRRDDLLLRDRRDLRDDDLDLRRDDLULDLUDLLLLLLLLLULDLLURURLLURLUUUURULRRULLURRRRLD",
+        fun _ -> true );
+      ( app Lambdaman_pack.decode_dirs
+          (Integer
+             (Lambdaman_pack.encode_dirs
+                "RDLLLULURRULRRRRRDLRRDLRRDLLDRLLDRLLLLLLLULRRLULLURULRURURURRRRRRRRRULRRDDLLLRDRRDLRDDDLDLRRDDLULDLUDLLLLLLLLLULDLLURURLLURLUUUURULRRULLURRRRLD")),
+        fun _ -> true );
+    ];
+    (* lvl 6 *)
     List.map
       (List.append hand_solutions6 (generate_hand_solutions6 ()))
       ~f:(fun x -> (x, validate_result6));
-    [];
+    (* lvl 7 *)
+    [
+      ( random_mover (big 5000)
+          (Bigint.of_string "11376319153570422810653774824059613450159648771649"),
+        fun _ -> true );
+    ];
+    (* lvl 8 *)
     List.map hand_solutions8 ~f:(fun s ->
         ( s,
           fun s ->
             printf "%s\n" s;
             true ));
+    (* lvl 9 *)
     List.map hand_solutions9 ~f:(fun s -> (s, fun _ -> true));
-    [];
+    (* lvl 10 *)
+    [ (random_mover (big 48000) (Bigint.of_string "419253"), fun _ -> true) ];
+    (* lvl 11 *)
     [ (spiral "DLUR" 100 999999, fun _ -> true) ];
   ]
 
@@ -145,21 +184,101 @@ let get_hand_solutions level =
   then Some (List.nth_exn hand_solutions (level - 1))
   else None
 
-let get_random_solutions dir level =
+exception FoundSolution of Bigint.t list * string * int
+
+let get_random_solutions dir level seed_len windowed eager =
   let filename = dir ^ "/lambdaman" ^ Int.to_string level ^ ".txt" in
   let grid = Util.load_char_grid filename in
-  let state = Lambdaman_sim.init_state grid in
-  printf "Initial state:\n%s\n" (Lambdaman_sim.dump_state state);
-  let random_string = Muttleyman.repeated_random 50 20_000 in
-  Lambdaman_sim.run_str state random_string;
-  printf "End state:\n%s\n" (Lambdaman_sim.dump_state state);
-  None
+  let trials = 500 in
+  let time = 1_000_000 in
+  let doubling = level > 10 && level < 17 in
+  let _boost_max = 3 in
+  let _boost_prob = 0.8 in
+  let seed_generator () = Muttleyman.random_seed seed_len in
+  let path_generator len seed =
+    let ilen = if doubling then len / 2 else len in
+    Muttleyman.pseudo_repeat_random_linear_cong seed_len seed ilen
+    |> if doubling then Muttleyman.double_path else Fn.id
+    (* Muttleyman.random_moves ilen |> if doubling then Muttleyman.double_path else Fn.id *)
+    (* |> Muttleyman.boost_path boost_max boost_prob *)
+  in
+  try
+    (if windowed = 1 && not eager then (
+       printf "Trying to find solution at seed len %d%!\n" seed_len;
+       for i = 1 to trials do
+         printf ".%!";
+         let state = Lambdaman_sim.init_state (Array.copy_matrix grid) in
+         let seed = seed_generator () in
+         let path = path_generator time seed in
+         let path =
+           if String.length path > time then printf "WARNING: path too long, truncating\n";
+           String.prefix path time
+         in
+         Lambdaman_sim.run_str state path;
+         if state.pills |> Hash_set.Poly.is_empty then
+           raise (FoundSolution ([ seed ], path, state.ticks))
+         else if i = trials then (
+           printf "No solution found\nFinal state of last run:\n%s\n"
+             (Lambdaman_sim.dump_state state);
+           printf "Really, there was no solution\n")
+       done)
+     else
+       let state = Lambdaman_sim.init_state (Array.copy_matrix grid) in
+       printf "Lambdaman in (%d, %d)\n" (fst state.lambdaman) (snd state.lambdaman);
+       if eager then (
+         let path_generator = path_generator (time / 8) in
+         printf "Eager punter going for a punt with seed len %d%!\n" seed_len;
+         match Muttleyman.eager_punter state seed_generator path_generator time trials with
+         | None -> ()
+         | Some seeds ->
+             printf "I think I found a solution!";
+             printf "Random seeds:\n%s\n"
+               (seeds |> List.map ~f:Bigint.to_string |> String.concat ~sep:" --- ");
+             let path = seeds |> List.map ~f:path_generator |> String.concat in
+             let state = Lambdaman_sim.init_state (Array.copy_matrix grid) in
+             Lambdaman_sim.run_str state path;
+             if state.pills |> Hash_set.Poly.is_empty && state.ticks < time then
+               raise (FoundSolution (seeds, path, state.ticks))
+             else printf "The solution was a lie!\nFinal Ticks: %d" state.ticks
+         (* printf "The solution was a lie!\nFinal state of last run:\n%s\n"
+            (Lambdaman_sim.dump_state state)) *))
+       else
+         let path_generator = path_generator (time / windowed) in
+         printf "Going for a windowed solution with seed len %d%!\n" seed_len;
+         match Muttleyman.window_seeder windowed state seed_generator path_generator trials with
+         | None -> ()
+         | Some seeds ->
+             printf "I think I found a solution!";
+             printf "Random seeds:\n[%s]\n"
+               (seeds |> List.map ~f:Bigint.to_string |> String.concat ~sep:"; ");
+             let path = seeds |> List.map ~f:path_generator |> String.concat in
+             let state = Lambdaman_sim.init_state (Array.copy_matrix grid) in
+             Lambdaman_sim.run_str state path;
+             if state.pills |> Hash_set.Poly.is_empty then
+               raise (FoundSolution (seeds, path, state.ticks))
+             else
+               printf "The solution was a lie!\nFinal state of last run:\n%s\n"
+                 (Lambdaman_sim.dump_state state));
+    None
+  with
+  | FoundSolution (seeds, _path, ticks) ->
+      printf "FOUND SOLUTION:\n";
+      (* printf "path:\n%s\n" path; *)
+      printf "Random seeds:\n%s\n"
+        (seeds |> List.map ~f:Bigint.to_string |> String.concat ~sep:" --- ");
+      printf "Level %d: Ticks produced: %d -- %d seeds %s\n" level ticks (List.length seeds)
+        (if ticks > 1_000_000 then " (Obs: Needs drop!)" else "");
+      Some []
 
 let check = ref false
 let dir = ref ""
 let random = ref false
 let write = ref false
 let submit = ref false
+let sim = ref false
+let windowed = ref 1
+let eager = ref false
+let seed_len = ref 25
 
 let speclist =
   [
@@ -168,6 +287,10 @@ let speclist =
     ("--random", Arg.Set random, "Use random solutions");
     ("--write", Arg.Set write, "Write solutions to file (default: false)");
     ("--submit", Arg.Set submit, "Submit solutions to server (default: false)");
+    ("--sim", Arg.Set sim, "Simulate submission (default: false)");
+    ("--windowed", Arg.Set_int windowed, "The number of windows for random (default: 1)");
+    ("--eager", Arg.Set eager, "Use the eager punter for random (default: false)");
+    ("--seed_len", Arg.Set_int seed_len, "Set the seed length for random (default: 25)");
   ]
 
 let usage_msg = "lambdaman_hand [--check] [--write] [--submit] [--dir <dir>] <level>"
@@ -178,7 +301,10 @@ let anon_fun l = level := Int.of_string l
 let () =
   Arg.parse speclist anon_fun usage_msg;
   let dir, level, use_random = (!dir, !level, !random) in
-  let sols = if use_random then get_random_solutions dir level else get_hand_solutions level in
+  let sols =
+    if use_random then get_random_solutions dir level !seed_len !windowed !eager
+    else get_hand_solutions level
+  in
   match sols with
   | None -> printf "No solution for level %d\n" level
   | Some sols ->
@@ -188,7 +314,9 @@ let () =
           (if !check then
              let res = Interpreter.eval sol in
              match res with
-             | String s -> if not (validator s) then printf "XXX Validation failed: %s\n" s
+             | String s ->
+                 printf "Result: %s\n" s;
+                 if not (validator s) then printf "XXX Validation failed: %s\n" s
              | _ -> printf "XXX Didn't evaluate to a string literal: %s\n" (Language.deparse res));
 
           if !write then
