@@ -28,7 +28,9 @@ let best_sol dir name =
   match Sys_unix.file_exists sol_dir with
   | `Yes -> (
       let files = Sys_unix.ls_dir sol_dir in
-      let best = files |> List.map ~f:Int.of_string |> List.min_elt ~compare:Int.compare in
+      let best =
+        files |> List.filter_map ~f:Int.of_string_opt |> List.min_elt ~compare:Int.compare
+      in
       match best with
       | Some best ->
           let best_file = sol_dir ^ "/" ^ Int.to_string best in
