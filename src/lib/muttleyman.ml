@@ -194,10 +194,11 @@ let eager_punter init_state seed_generator generator total_time trials_per_punt 
     | None -> None
     | Some (state', seed) ->
         let pills_left = Hash_set.Poly.length state'.pills in
-        printf "Found seed %s (%d pills left)\n%!" (Bigint.to_string seed) pills_left;
+        printf "Found seed %s (%d pills left, %d ticks left)\n%!" (Bigint.to_string seed) pills_left
+          (total_time - state'.ticks);
         if pills_left = 0 then Some (List.rev (seed :: acc_seeds))
         else if state'.ticks > total_time then (
-          printf "Ticks exceeded, bailing\n";
+          printf "Ticks exceeded (%d), bailing\n" state'.ticks;
           None)
         else aux (state', seed :: acc_seeds)
   in
