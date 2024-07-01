@@ -1,3 +1,8 @@
+(*
+ * This file is adapted from https://gist.github.com/akabe/ad9a6deaaa639124944f,
+ * shared by Akinori ABE (@akabe) on GitHub.
+ *)
+
 type 'a problem = {
   move_cost : 'a -> 'a -> int; (* Will only be called on neighboring states *)
   is_goal : 'a -> bool;
