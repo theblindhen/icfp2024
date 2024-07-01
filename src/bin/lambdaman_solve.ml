@@ -21,9 +21,6 @@ let find_positions grid =
   done;
   (!lambda_pos, !pills)
 
-(* Find manhattan distance between two points *)
-let manhattan_distance (x1, y1) (x2, y2) = abs (x1 - x2) + abs (y1 - y2)
-
 (* Shortest path between start and goal using A* *)
 let find_shortest_path grid start goal =
   (* Debug *)
@@ -31,7 +28,8 @@ let find_shortest_path grid start goal =
   let grid_height = Array.length grid in
   let problem : 'a t =
     {
-      cost = manhattan_distance;
+      move_cost = Util.manhattan_distance;
+      heuristic_cost = Util.manhattan_distance goal;
       get_next_states =
         (fun (i, j) ->
           Array.fold directions ~init:[] ~f:(fun acc (di, dj, _) ->
@@ -44,7 +42,7 @@ let find_shortest_path grid start goal =
                 && Char.(grid.(i').[j'] <> '#')
               then (i', j') :: acc
               else acc));
-      goal;
+      is_goal = (fun pos -> Stdlib.(pos = goal));
     }
   in
   let path = List.rev (search problem start) in
