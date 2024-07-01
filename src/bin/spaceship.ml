@@ -160,15 +160,6 @@ let solve (problem : (int * int) list) =
 type astar_state = state * bool (* pos, vel, took_first *)
 
 let best_path_2 state first next =
-  let fly_dist (x, y, vx, vy) (x', y') =
-    let composant_dist (z, vz) z' =
-      let dz = z' - z in
-      (* TODO: Improve heuristic by not computing in abs vz *)
-      let rec try_t t = if (t * abs vz) + (t * t) >= dz then t else try_t (t + 1) in
-      try_t 1
-    in
-    max (composant_dist (x, vx) x') (composant_dist (y, vy) y')
-  in
   let astar_problem : astar_state problem =
     {
       move_cost = (fun _ _ -> 1);
@@ -184,12 +175,12 @@ let best_path_2 state first next =
               ((x', y', vx', vy'), took_first || Stdlib.((x', y') = first))));
       heuristic_cost =
         (fun (pos_vel, took_first) ->
-          if took_first then fly_dist pos_vel next
+          if took_first then Spaceshiplib.fly_dist pos_vel next
           else
             let _, _, vx, vy = pos_vel in
             let fx, fy = first in
-            let first_t = fly_dist pos_vel first in
-            first_t + fly_dist (fx, fy, vx + first_t, vy + first_t) next);
+            let first_t = Spaceshiplib.fly_dist pos_vel first in
+            first_t + Spaceshiplib.fly_dist (fx, fy, vx + first_t, vy + first_t) next);
     }
   in
   let to_state (state, _) = state in
@@ -252,8 +243,7 @@ let line_solve (problem : (int * int) list) =
     | [] -> acc
     | _ :: [] -> failwith "Can't solve a problem of len 1"
     | first :: next :: tl ->
-        printf "Moving from %s to %d,%d and then %d,%d\n%!" (string_of_state
-        state) (fst first)
+        printf "Moving from %s to %d,%d and then %d,%d\n%!" (string_of_state state) (fst first)
           (snd first) (fst next) (snd next);
         let to_first, to_next, state = best_path_2 state first next in
         printf "To first: [%s]\n" (String.of_char_list to_first);

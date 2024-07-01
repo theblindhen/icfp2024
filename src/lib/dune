@@ -13,6 +13,7 @@
   metalanguage
   lambdaman_pack
   lambdaman_sim
+  spaceshiplib
   muttleyman
   threeD)
  (flags
