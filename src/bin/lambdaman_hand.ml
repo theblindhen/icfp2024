@@ -403,7 +403,8 @@ let get_random_solutions dir level seed_len windowed eager eager_factor =
        printf "Lambdaman in (%d, %d)\n" (fst state.lambdaman) (snd state.lambdaman);
        if eager then (
          let path_generator = path_generator (time / eager_factor) in
-         printf "Eager punter going for a punt with seed len %d%!\n" seed_len;
+         printf "Eager punter going for a punt with seed len %d and eager factor %d %!\n" seed_len
+           eager_factor;
          match Muttleyman.eager_punter state seed_generator path_generator time trials with
          | None -> ()
          | Some seeds ->
@@ -471,7 +472,9 @@ let speclist =
     ("--sim", Arg.Set sim, "Simulate submission (default: false)");
     ("--windowed", Arg.Set_int windowed, "The number of windows for random (default: 1)");
     ("--eager", Arg.Set eager, "Use the eager punter for random (default: false)");
-    ("--eager_factor", Arg.Set eager, "Use this eager factor for eager random (default: 8)");
+    ( "--eager_factor",
+      Arg.Set_int eager_factor,
+      "Use this eager factor for eager random (default: 8)" );
     ("--seed_len", Arg.Set_int seed_len, "Set the seed length for random (default: 25)");
   ]
 
