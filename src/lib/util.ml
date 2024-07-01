@@ -32,3 +32,6 @@ let quo_rem (a : Bigint.t) (b : Bigint.t) =
   let quo = Bigint.( / ) a b in
   let rem = a -- (b ** quo) in
   (quo, rem)
+
+(* Find manhattan distance between two points *)
+let manhattan_distance (x1, y1) (x2, y2) = abs (x1 - x2) + abs (y1 - y2)

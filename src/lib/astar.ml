@@ -1,15 +1,22 @@
+type 'a problem = {
+  move_cost : 'a -> 'a -> int; (* Will only be called on neighboring states *)
+  is_goal : 'a -> bool;
+  get_next_states : 'a -> 'a list;
+  heuristic_cost : 'a -> int;
+}
+
 module Astar : sig
-  type 'a t = { cost : 'a -> 'a -> int; goal : 'a; get_next_states : 'a -> 'a list }
+  type 'a t = 'a problem
 
   val search : 'a t -> 'a -> 'a list
   (** [search problem start] returns a path (a list of states) from [start] to
-      [problem.goal]. The path minimizes [problem.cost]. *)
+      [problem.goal]. The path minimizes the sum of [problem.move_cost]. *)
 end = struct
-  type 'a t = { cost : 'a -> 'a -> int; goal : 'a; get_next_states : 'a -> 'a list }
+  type 'a t = 'a problem
 
   type 'a path = {
     cost_from_start : int;  (** the cost from the start to [head]. *)
-    total_cost : int;  (** the total cost from the start to the goal. *)
+    total_cost : int;  (** the total heuristic cost from the start to the goal. *)
     head : 'a;
     tail : 'a list;
   }
@@ -18,9 +25,9 @@ end = struct
     let cost_from_start, tail =
       match from with
       | None -> (0, [])
-      | Some p -> (p.cost_from_start + problem.cost p.head state, p.head :: p.tail)
+      | Some p -> (p.cost_from_start + problem.move_cost p.head state, p.head :: p.tail)
     in
-    let total_cost = cost_from_start + problem.cost state problem.goal in
+    let total_cost = cost_from_start + problem.heuristic_cost state in
     { cost_from_start; total_cost; tail; head = state }
 
   (** [better p q] returns [true] if path [p] is better than path [q]. *)
@@ -64,7 +71,7 @@ end = struct
       match pickup_best_path ol with
       | None -> None (* No path reaches to [problem.goal] *)
       | Some (p, ol') ->
-          if p.head = problem.goal then Some p (* reached to the goal *)
+          if problem.is_goal p.head then Some p (* reached to the goal *)
           else aux (trace_next_states problem ol' (p :: cl) p)
     in
     match aux ([ create_path problem start ], []) with
