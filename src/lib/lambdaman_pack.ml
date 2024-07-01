@@ -27,6 +27,18 @@ let decode_dirs_body_safe =
                (decode_dir (mod_op arg (Integer (big 4))))
                (app rec_f (div_op arg (Integer (big 4)))))))
 
+let decode_dirs_body_safe_double =
+  abs (fun rec_f ->
+      abs (fun arg ->
+          if_op
+            (eq_op arg (Integer (big 0)))
+            (String "")
+            (concat_op
+               (concat_op
+                  (decode_dir (mod_op arg (Integer (big 4))))
+                  (decode_dir (mod_op arg (Integer (big 4)))))
+               (app rec_f (div_op arg (Integer (big 4)))))))
+
 (** ICFP term for decoding integers to L/D/U/R efficiently *)
 let decode_dirs = app rec_op decode_dirs_body
 
