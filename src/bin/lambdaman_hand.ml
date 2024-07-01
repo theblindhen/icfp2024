@@ -250,8 +250,8 @@ let get_random_solutions dir level windowed eager =
          | None -> ()
          | Some seeds ->
              printf "I think I found a solution!";
-             printf "Random seeds:\n%s\n"
-               (seeds |> List.map ~f:Bigint.to_string |> String.concat ~sep:" --- ");
+             printf "Random seeds:\n[%s]\n"
+               (seeds |> List.map ~f:Bigint.to_string |> String.concat ~sep:"; ");
              let path = seeds |> List.map ~f:path_generator |> String.concat in
              let state = Lambdaman_sim.init_state (Array.copy_matrix grid) in
              Lambdaman_sim.run_str state path;
@@ -267,7 +267,8 @@ let get_random_solutions dir level windowed eager =
       (* printf "path:\n%s\n" path; *)
       printf "Random seeds:\n%s\n"
         (seeds |> List.map ~f:Bigint.to_string |> String.concat ~sep:" --- ");
-      printf "Ticks needed: %d -- %d seeds \n" ticks (List.length seeds);
+      printf "Ticks needed: %d -- %d seeds %s\n" ticks (List.length seeds)
+        (if ticks > 1_000_000 then " (TOO LONG)" else "");
       None
 
 let check = ref false
