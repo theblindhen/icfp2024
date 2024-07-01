@@ -1,5 +1,6 @@
 open Core
 open Lib
+open Astar
 
 (*
 From the task description:
@@ -36,7 +37,7 @@ let move_of_direction (ax, ay) =
   | -1, 1 -> '7'
   | 0, 1 -> '8'
   | 1, 1 -> '9'
-  | _ -> failwith "Can't move this far in one step"
+  | _ -> failwith (sprintf "Can't move this far in one step: %d,%d" ax ay)
 
 let direction_of_move = function
   | '1' -> (-1, -1)
@@ -57,6 +58,8 @@ let closest_square (x, y) squares =
   |> Option.map ~f:fst
 
 type state = int * int * int * int
+
+let string_of_state (x, y, vx, vy) = Printf.sprintf "(%d,%d,%d,%d)" x y vx vy
 
 let solve (problem : (int * int) list) =
   (* Solution strategy:
@@ -154,6 +157,100 @@ let solve (problem : (int * int) list) =
   in
   List.concat (search_all_points (0, 0, 0, 0))
 
+type astar_state = state * bool (* pos, vel, took_first *)
+
+let best_path_2 state first next =
+  let fly_dist (x, y, vx, vy) (x', y') =
+    let composant_dist (z, vz) z' =
+      let dz = z' - z in
+      (* TODO: Improve heuristic by not computing in abs vz *)
+      let rec try_t t = if (t * abs vz) + (t * t) >= dz then t else try_t (t + 1) in
+      try_t 1
+    in
+    max (composant_dist (x, vx) x') (composant_dist (y, vy) y')
+  in
+  let astar_problem : astar_state problem =
+    {
+      move_cost = (fun _ _ -> 1);
+      is_goal = (fun ((x, y, _, _), took_first) -> took_first && Stdlib.((x, y) = next));
+      get_next_states =
+        (fun ((x, y, vx, vy), took_first) ->
+          List.map [ '1'; '2'; '3'; '4'; '5'; '6'; '7'; '8'; '9' ] ~f:(fun move ->
+              let ax, ay = direction_of_move move in
+              let vx' = vx + ax in
+              let vy' = vy + ay in
+              let x' = x + vx' in
+              let y' = y + vy' in
+              ((x', y', vx', vy'), took_first || Stdlib.((x', y') = first))));
+      heuristic_cost =
+        (fun (pos_vel, took_first) ->
+          if took_first then fly_dist pos_vel next
+          else
+            let _, _, vx, vy = pos_vel in
+            let fx, fy = first in
+            let first_t = fly_dist pos_vel first in
+            first_t + fly_dist (fx, fy, vx + first_t, vy + first_t) next);
+    }
+  in
+  let to_state (state, _) = state in
+  let positions = Astar.search astar_problem (state, false) |> List.rev |> List.tl_exn in
+  printf "Found solution: From %s with [%s]\n%!" (string_of_state state)
+    (positions
+    |> List.map ~f:to_state
+    |> List.map ~f:(fun (x, y, vx, vy) -> Printf.sprintf "(%d,%d,%d,%d)" x y vx vy)
+    |> String.concat ~sep:"; ");
+  let first, next =
+    let did_take_first (_, took_first) = not took_first in
+    let took_first = List.take_while positions ~f:did_take_first in
+    let didnt = List.drop_while positions ~f:did_take_first in
+    ( took_first @ [ List.hd_exn didnt ] |> List.map ~f:to_state,
+      List.tl_exn didnt |> List.map ~f:to_state )
+  in
+  let to_moves init_state states =
+    let rec aux ((x, y, vx, vy) as cur) rest =
+      match rest with
+      | [] -> []
+      | ((nx, ny, _, _) as next) :: tl ->
+          printf "Converting move from %s to %d,%d\n%!" (string_of_state cur) nx ny;
+          let move = move_of_direction (nx - x - vx, ny - y - vy) in
+          move :: aux next tl
+    in
+    aux init_state states
+  in
+  let after_first = List.last_exn first in
+  (to_moves state first, to_moves after_first next, after_first)
+
+let line_solve (problem : (int * int) list) =
+  (* Solution strategy:
+      - Assume the list of points is sorted as a line (later, sort it)
+      - Find the shortes moves that reach the first two points.
+      - Keep only the points until the next point; recurse
+  *)
+  let unique_points =
+    let seen = Hash_set.Poly.create () in
+    let aux acc (x, y) =
+      if Hash_set.Poly.mem seen (x, y) then acc
+      else (
+        Hash_set.Poly.add seen (x, y);
+        (x, y) :: acc)
+    in
+    List.fold problem ~init:[] ~f:aux |> List.rev
+  in
+  let rec aux state points acc =
+    match points with
+    | [] -> acc
+    | _ :: [] -> failwith "Can't solve a problem of len 1"
+    | first :: next :: tl ->
+        let x, y, _, _ = state in
+        printf "Moving from %d,%d to %d,%d and then %d,%d\n%!" x y (fst first) (snd first)
+          (fst next) (snd next);
+        let to_first, to_next, state = best_path_2 state first next in
+        printf "To first: [%s]\n" (String.of_char_list to_first);
+        if List.is_empty tl then acc @ to_first @ to_next
+        else aux state (next :: tl) (acc @ to_first)
+  in
+  aux (0, 0, 0, 0) unique_points []
+
 let simulate ~callback problem solution =
   let point_set = Hash_set.Poly.of_list problem in
   Hash_set.Poly.remove point_set (0, 0);
@@ -183,9 +280,10 @@ let simulate ~callback problem solution =
         )
 
 let () =
-  let map_dir, level =
+  let map_dir, level, line_solver =
     match Sys.get_argv () with
-    | [| _; dir; level |] -> (dir, level)
+    | [| _; "-l"; dir; level |] -> (dir, level, true)
+    | [| _; dir; level |] -> (dir, level, false)
     | _ -> failwith "Usage: spaceship MAP_DIR LEVEL"
   in
   let problem =
@@ -196,7 +294,7 @@ let () =
            | [ key; value ] -> (Int.of_string key, Int.of_string value)
            | _ -> failwith ("Invalid line: " ^ line))
   in
-  let sol = solve problem in
+  let sol = if line_solver then line_solve problem else solve problem in
   let trace =
     let trace_ref = ref [] in
     simulate ~callback:(fun xy -> trace_ref := xy :: !trace_ref) problem sol;
