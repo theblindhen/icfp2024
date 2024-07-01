@@ -31,19 +31,48 @@ def sin_taylor(A):
   # return scaled // (fac_from(1, 13) * T**12)
   
   ### Horner integer implementation
+  # K = 1
+  # sign = 1
+  # poly = A * A
+  # for r in range(1, 7):  # r = 6-k according to above
+  #   K *= T*T * (15 - 2*r) * (14 - 2*r)
+  #   sign *= -1
+  #   poly += sign * K
+  #   if r != 6:
+  #     poly *= A * A
+  # return poly * A // K
+
+
+  ### Horner integer implementation unfolded for 3d
   K = 1
   sign = 1
   poly = A * A
-  for r in range(1, 7):  # r = 6-k according to above
-    K *= T*T * (15 - 2*r) * (14 - 2*r)
-    sign *= -1
-    poly += sign * K
-    if r != 6:
-      poly *= A * A
+  
+  ### unfold the loop
+  K *= T * T * 13 * 12
+  poly += -1 * K 
+  poly *= A * A
+
+  K *= T * T * 11 * 10
+  poly += K 
+  poly *= A * A
+
+  K *= T * T * 72
+  poly += -1 * K   
+  poly *= A * A
+
+  K *= T * T * 42
+  poly += K 
+  poly *= A * A
+
+  K *= T * T * 20
+  poly += -1 * K 
+  poly *= A * A
+
+  K *= T * T * 6
+  poly += 1 * K
+
   return poly * A // K
-
-
-
 
 def sin(A):
     # Use the stdlibrary 
