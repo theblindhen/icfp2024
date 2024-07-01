@@ -46,7 +46,11 @@ let fly_dist (x, y, vx, vy) (x', y') =
     let dz = abs (z' - z) in
     let is_non_neg a = if a < 0 then -1 else 1 in
     let vz_signed = is_non_neg dz * is_non_neg vz * vz in
-    let rec try_t t = if (t * vz_signed) + (t * t / 2) + 1 >= dz then t else try_t (t + 1) in
+    let rec try_t t =
+      let unmod = t * vz_signed in
+      let max_thrust = t * (t + 1) / 2 in
+      if unmod - max_thrust <= dz && dz <= unmod + max_thrust then t else try_t (t + 1)
+    in
     try_t 1
   in
   if x = x' && y = y' then 0 else max (composant_dist (x, vx) x') (composant_dist (y, vy) y')
@@ -108,10 +112,13 @@ let best_path_2 state first next =
 (* TESTS *)
 let%test_unit "fly_dist" =
   let t = fly_dist (0, 0, 0, 0) (0, 0) in
-  printf "%d\n" t;
   assert (t = 0)
 
 let%test_unit "fly_dist2" =
   let t = fly_dist (-32, -115, -5, -7) (-45, -127) in
-  printf "%d\n" t;
   assert (t = 2)
+
+let%test_unit "fly_dist3" = assert (fly_dist (0, 0, 7, 0) (10, 0) = 12)
+let%test_unit "fly_dist4" = assert (fly_dist (0, 0, -7, 0) (-10, 0) = 12)
+let%test_unit "fly_dist4" = assert (fly_dist (0, 0, 0, 7) (0, 10) = 12)
+let%test_unit "fly_dist4" = assert (fly_dist (0, 0, 0, -7) (0, -10) = 12)
