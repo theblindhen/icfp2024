@@ -164,7 +164,7 @@ let dump_state (state : state) : string =
     | None -> ""
     | Some v -> "Return value: " ^ Bigint.to_string_hum v ^ "\n"
   in
-  time ^ return_value ^ grid_to_string_with_s state.grid state.s_pos
+  time ^ grid_to_string_with_s state.grid state.s_pos ^ return_value
 
 let cost (state : state) =
   let dimx, dimy = state.max_dims in
