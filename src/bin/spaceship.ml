@@ -220,12 +220,23 @@ let best_path_2 state first next =
   let after_first = List.last_exn first in
   (to_moves state first, to_moves after_first next, after_first)
 
+let line_sort_problem problem =
+  let rec aux acc (cx, cy) rest =
+    match closest_square (cx, cy) rest with
+    | None -> List.rev acc
+    | Some nearest ->
+        let rest = List.filter rest ~f:(fun p -> Stdlib.(p <> nearest)) in
+        aux (nearest :: acc) nearest rest
+  in
+  aux [] (0, 0) problem
+
 let line_solve (problem : (int * int) list) =
   (* Solution strategy:
       - Assume the list of points is sorted as a line (later, sort it)
       - Find the shortes moves that reach the first two points.
       - Keep only the points until the next point; recurse
   *)
+  let line = line_sort_problem problem in
   let unique_points =
     let seen = Hash_set.Poly.create () in
     let aux acc (x, y) =
@@ -234,16 +245,16 @@ let line_solve (problem : (int * int) list) =
         Hash_set.Poly.add seen (x, y);
         (x, y) :: acc)
     in
-    List.fold problem ~init:[] ~f:aux |> List.rev
+    List.fold line ~init:[] ~f:aux |> List.rev
   in
   let rec aux state points acc =
     match points with
     | [] -> acc
     | _ :: [] -> failwith "Can't solve a problem of len 1"
     | first :: next :: tl ->
-        let x, y, _, _ = state in
-        printf "Moving from %d,%d to %d,%d and then %d,%d\n%!" x y (fst first) (snd first)
-          (fst next) (snd next);
+        printf "Moving from %s to %d,%d and then %d,%d\n%!" (string_of_state
+        state) (fst first)
+          (snd first) (fst next) (snd next);
         let to_first, to_next, state = best_path_2 state first next in
         printf "To first: [%s]\n" (String.of_char_list to_first);
         if List.is_empty tl then acc @ to_first @ to_next
