@@ -239,9 +239,9 @@ let get_random_solutions dir level seed_len windowed eager =
              Lambdaman_sim.run_str state path;
              if state.pills |> Hash_set.Poly.is_empty && state.ticks < time then
                raise (FoundSolution (seeds, path, state.ticks))
-             else
-               printf "The solution was a lie!\nFinal state of last run:\n%s\n"
-                 (Lambdaman_sim.dump_state state))
+             else printf "The solution was a lie!\nFinal Ticks: %d" state.ticks
+         (* printf "The solution was a lie!\nFinal state of last run:\n%s\n"
+            (Lambdaman_sim.dump_state state)) *))
        else
          let path_generator = path_generator (time / windowed) in
          printf "Going for a windowed solution with seed len %d%!\n" seed_len;
