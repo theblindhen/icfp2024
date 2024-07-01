@@ -226,6 +226,16 @@ let line_solve (problem : (int * int) list) =
       - Find the shortes moves that reach the first two points.
       - Keep only the points until the next point; recurse
   *)
+  let unique_points =
+    let seen = Hash_set.Poly.create () in
+    let aux acc (x, y) =
+      if Hash_set.Poly.mem seen (x, y) then acc
+      else (
+        Hash_set.Poly.add seen (x, y);
+        (x, y) :: acc)
+    in
+    List.fold problem ~init:[] ~f:aux |> List.rev
+  in
   let rec aux state points acc =
     match points with
     | [] -> acc
@@ -239,11 +249,12 @@ let line_solve (problem : (int * int) list) =
         if List.is_empty tl then acc @ to_first @ to_next
         else aux state (next :: tl) (acc @ to_first)
   in
-  aux (0, 0, 0, 0) problem []
+  aux (0, 0, 0, 0) unique_points []
 
-let simulate problem solution =
+let simulate ~callback problem solution =
   let point_set = Hash_set.Poly.of_list problem in
   Hash_set.Poly.remove point_set (0, 0);
+  callback (0, 0);
   let _, _, max_speed =
     List.fold solution
       ~init:((0, 0), (0, 0), 0)
@@ -254,6 +265,7 @@ let simulate problem solution =
         let max_speed = Int.max max_speed (Int.max (abs dx) (abs dy)) in
         let x = x + dx in
         let y = y + dy in
+        callback (x, y);
         Hash_set.Poly.remove point_set (x, y);
         ((x, y), (dx, dy), max_speed))
   in
@@ -283,8 +295,14 @@ let () =
            | _ -> failwith ("Invalid line: " ^ line))
   in
   let sol = if line_solver then line_solve problem else solve problem in
-  simulate problem sol;
+  let trace =
+    let trace_ref = ref [] in
+    simulate ~callback:(fun xy -> trace_ref := xy :: !trace_ref) problem sol;
+    List.rev_map !trace_ref ~f:(fun (x, y) -> Printf.sprintf "%d %d\n" x y)
+  in
   let sol_str = String.of_char_list sol in
+  Solutions.write_solution ~suffix:"trace" ~alt_score:(Solutions.score sol_str) "spaceship" map_dir
+    level (String.concat trace);
   Solutions.write_solution "spaceship" map_dir level sol_str;
   print_endline sol_str;
   ()

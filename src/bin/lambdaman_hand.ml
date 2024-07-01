@@ -132,6 +132,56 @@ let random_mover n seed =
                              (app r (add_op i (Integer (big 1)))))))))
             (Integer (big 0))))
 
+let random_mover_linear_cong double n =
+  let a = Bigint.of_int 1664543 in
+  let c = Bigint.of_int 1013904223 in
+  abs (fun seed ->
+      let_op rec_op (fun rec_op ->
+          app
+            (app
+               (app rec_op
+                  (abs (fun r ->
+                       abs (fun i ->
+                           abs (fun rnd ->
+                               if_op (eq_op i (Integer n)) (String "")
+                                 (concat_op
+                                    (app
+                                       (app rec_op
+                                          (if double then
+                                             Lambdaman_pack.decode_dirs_body_safe_double
+                                           else Lambdaman_pack.decode_dirs_body_safe))
+                                       rnd)
+                                    (app
+                                       (app r (add_op i (Integer (big 1))))
+                                       (mod_op (add_op (mult_op (Integer a) rnd) (Integer c)) seed))))))))
+               (Integer (big 0)))
+            seed))
+
+(* let double =
+   app rec_op
+     (abs (fun r ->
+          abs (fun s ->
+              if_op (eq_op s (String "")) (String "")
+                (let_op
+                   (take_op (Integer (big 1)) s)
+                   (fun c -> concat_op (concat_op c c) (app r (drop_op (Integer (big 1)) s))))))) *)
+
+let use_random_move_seeds level seeds =
+  let time = 1_000_000 in
+  let seed_len = 25 in
+  let doubling = level > 10 && level < 17 in
+  let pr_seed_time = time / 8 in
+  let ilen = if doubling then pr_seed_time / 2 else pr_seed_time in
+  let reps = ilen / seed_len in
+  let seeds = List.map ~f:(fun s -> Integer (Bigint.of_string s)) seeds in
+  let path =
+    let_op
+      (random_mover_linear_cong doubling (big reps))
+      (fun path_gen ->
+        List.fold seeds ~init:(String "") ~f:(fun acc seed -> concat_op acc (app path_gen seed)))
+  in
+  path
+
 let hand_solutions =
   [
     (* lvl 1 *)
@@ -174,7 +224,133 @@ let hand_solutions =
     (* lvl 10 *)
     [ (random_mover (big 48000) (Bigint.of_string "419253"), fun _ -> true) ];
     (* lvl 11 *)
-    [ (spiral "DLUR" 100 999999, fun _ -> true) ];
+    [
+      ( use_random_move_seeds 11
+          [
+            "310320896106735";
+            "994417900922617";
+            "434070468657171";
+            "265454041144311";
+            "518567628587229";
+            "1060388247021576";
+            "231532122788503";
+            "838371804846803";
+          ],
+        fun _ -> true );
+    ];
+    (* lvl 12 *)
+    [
+      ( use_random_move_seeds 12
+          [
+            "1020701028292982";
+            "359531091385203";
+            "616379947361168";
+            "944605048394827";
+            "410468893190413";
+            "948626125603513";
+            "562238820118079";
+          ],
+        fun _ -> true );
+    ];
+    (* lvl 13 *)
+    [
+      ( use_random_move_seeds 13
+          [
+            "1098980852083101";
+            "467459250654953";
+            "834783854302949";
+            "810039608059304";
+            "124036403185730";
+            "160818393126735";
+            "1045534844990799";
+          ],
+        fun _ -> true );
+    ];
+    (* lvl 14 *)
+    [
+      ( use_random_move_seeds 14
+          [
+            "253414150635291";
+            "1053935229303375";
+            "457433119265799";
+            "484541520435701";
+            "995120241016045";
+            "372613064468116";
+            "715088766622569";
+          ],
+        fun _ -> true );
+    ];
+    (* lvl 15 *)
+    [
+      ( use_random_move_seeds 15
+          [
+            "65127901094417";
+            "731042368727083";
+            "823644328558372";
+            "1072016859587940";
+            "358339787414299";
+            "223103441056256";
+            "459882053407730";
+            "698232268627085";
+          ],
+        fun _ -> true );
+    ];
+    (* lvl 16 *)
+    [
+      ( use_random_move_seeds 16
+          [
+            "824749631174743";
+            "33651234577867";
+            "410734819134391";
+            "1035943323379897";
+            "986034489573357";
+            "1090894023747339";
+            "967950491898109";
+          ],
+        fun _ -> true );
+    ];
+    (* lvl 17 *)
+    [
+      ( use_random_move_seeds 17 [ "639448696149012"; "1017704350826687"; "291020040003992" ],
+        fun _ -> true );
+    ];
+    (* lvl 18 *)
+    [
+      ( use_random_move_seeds 18
+          [
+            "839930458749268";
+            "791619070878121";
+            "1113708197422120";
+            "228483696748394";
+            "1070376576397760";
+            "963493740907283";
+            "853374563745149";
+            "1013533727118392";
+          ],
+        fun _ -> true );
+    ];
+    (* lvl 19 *)
+    [];
+    (* lvl 20 *)
+    [];
+    (* lvl 21 *)
+    [
+      ( take_op
+          (Integer (big 999_999))
+          (use_random_move_seeds 21
+             [
+               "771829853253192";
+               "905517513183933";
+               "941605617732315";
+               "835094516548936";
+               "809745652409618";
+               "206684455127905";
+               "813399173201413";
+               "902380854217537";
+               "829212037734945";
+             ]),
+        fun _ -> true );
+    ];
   ]
 
 let get_hand_solutions level =
@@ -317,6 +493,7 @@ let () =
       List.iter sols ~f:(fun (sol, validator) ->
           let icfp = Language.deparse sol in
           printf "%5d: %s\n%!" (String.length icfp) icfp;
+          printf "%5d: %s\n%!" (String.length icfp) (Language.pp_as_lambda 50 sol);
           (if !check then
              let res = Interpreter.eval sol in
              match res with
