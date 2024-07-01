@@ -154,9 +154,10 @@ let solve (problem : (int * int) list) =
   in
   List.concat (search_all_points (0, 0, 0, 0))
 
-let simulate problem solution =
+let simulate ~callback problem solution =
   let point_set = Hash_set.Poly.of_list problem in
   Hash_set.Poly.remove point_set (0, 0);
+  callback (0, 0);
   let _, _, max_speed =
     List.fold solution
       ~init:((0, 0), (0, 0), 0)
@@ -167,6 +168,7 @@ let simulate problem solution =
         let max_speed = Int.max max_speed (Int.max (abs dx) (abs dy)) in
         let x = x + dx in
         let y = y + dy in
+        callback (x, y);
         Hash_set.Poly.remove point_set (x, y);
         ((x, y), (dx, dy), max_speed))
   in
@@ -195,8 +197,14 @@ let () =
            | _ -> failwith ("Invalid line: " ^ line))
   in
   let sol = solve problem in
-  simulate problem sol;
+  let trace =
+    let trace_ref = ref [] in
+    simulate ~callback:(fun xy -> trace_ref := xy :: !trace_ref) problem sol;
+    List.rev_map !trace_ref ~f:(fun (x, y) -> Printf.sprintf "%d %d\n" x y)
+  in
   let sol_str = String.of_char_list sol in
+  Solutions.write_solution ~suffix:"trace" ~alt_score:(Solutions.score sol_str) "spaceship" map_dir
+    level (String.concat trace);
   Solutions.write_solution "spaceship" map_dir level sol_str;
   print_endline sol_str;
   ()
