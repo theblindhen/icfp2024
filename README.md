@@ -11,7 +11,30 @@ Kasper Svendsen
 
 Jonas, Johan and Kasper in Aarhus, Denmark. Christoffer in Dubai, UAE
 
+We wrote most of our code in OCaml, plus a sprinkle of Python, shell script,
+and domain-specific tools like Gnuplot and SAT/LP/IP solvers.
+
 ## Lambdaman problems
+
+At first we dived straight into path-finding strategies for solving the problem
+with a minimal number of moves. When we saw that the encoding mattered, we
+tried to find efficient encodings of the paths we found, like run-length
+encoding and packing 2-bit move values into large integers.
+
+Our early ICFP-language interpreter wasn't efficient enough to interpret map
+21, which wasn't a string literal, so we hand-translated the code into a
+roughly equivalent OCaml program and got the map that way.
+
+By Sunday evening it was clear from the scores of other teams that we had the
+wrong strategy, and only at this point did we realise that it was valid to walk
+into walls. We switched strategies completely and instead arranged for our
+solutions to be a random seed plus an ICFP-language program to interpret that
+random seed into a string of moves. For bigger maps we had multiple random
+seeds packed into the same integer, with each random seed covering a section of
+the map. This meant that we could search for the best seed in stages, keeping
+the partial solution while exploring the rest. This worked well enough for
+almost all maps and could have probably worked for map 19 with a bit of tuning
+of the goal function (or exploiting symmetries in the map).
 
 ## Spaceship problems
 
@@ -54,7 +77,16 @@ This was crucial for shaking out subtle bugs and getting the timing just right.
 
 ## Efficiency problems
 
-We solved the efficiency problems by manually inspecting ICFP terms. Problems involving fibonacci numbers, primes, 2-powers, etc. where solved by identifying the corresponding filters. Bit-encoding and Sudoku problems were solved by translation into SAT and integer linear programming problems (solved using GLPK). 
+We solved the efficiency problems by manually inspecting ICFP terms. Problems involving fibonacci numbers, primes, 2-powers, etc. where solved by identifying the corresponding filters. Bit-encoding and Sudoku problems were solved by translation into SAT and integer linear programming problems (solved using GLPK).
+
+We had first thought that the hints about call-by-value and call-by-need were
+indications that our ICFP-language interpreter ought to be extended with those
+evaluation strategies. We implemented a light-weight version of call-by-need
+that was good enough to evaluate the first efficiency problem, but we found no
+use for it beyond that. Only near the end of the contest did we remember that
+the task description had a section about unknown operators, and we made some of
+our lambdaman solutions potentially more efficient to evaluate on the server
+side by making use of call-by-need in a few places.
 
 ## Building and developing
 
