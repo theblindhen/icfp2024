@@ -2,6 +2,13 @@ open Core
 open Lib
 open Astar
 
+let read_problem_file name =
+  In_channel.read_lines name
+  |> List.filter ~f:(String.( <> ) "") (* Skip empty lines *)
+  |> List.map ~f:(fun line ->
+         match String.split line ~on:' ' with
+         | [ key; value ] -> (Int.of_string key, Int.of_string value)
+         | _ -> failwith ("Invalid line: " ^ line))
 (*
 From the task description:
 
@@ -221,13 +228,28 @@ let line_sort_problem problem =
   in
   aux [] (0, 0) problem
 
-let line_solve (problem : (int * int) list) =
+let line_solve ~sort_file (problem : (int * int) list) =
   (* Solution strategy:
       - Assume the list of points is sorted as a line (later, sort it)
       - Find the shortes moves that reach the first two points.
       - Keep only the points until the next point; recurse
   *)
-  let line = line_sort_problem problem in
+  let line =
+    (* if file exists *)
+    match Sys_unix.file_exists sort_file with
+    | `No ->
+        Printf.eprintf "File %s not found; sorting and creating\n%!" sort_file;
+        let sorted = line_sort_problem problem in
+        Out_channel.write_lines sort_file
+          (List.map sorted ~f:(fun (x, y) -> Printf.sprintf "%d %d" x y));
+        sorted
+    | `Unknown ->
+        Printf.eprintf "File %s seems to have permission errors; ignoring\n%!" sort_file;
+        line_sort_problem problem
+    | `Yes ->
+        Printf.eprintf "File %s found; taking sort from that\n%!" sort_file;
+        read_problem_file sort_file
+  in
   let unique_points =
     let seen = Hash_set.Poly.create () in
     let aux acc (x, y) =
@@ -281,21 +303,18 @@ let simulate ~callback problem solution =
         )
 
 let () =
-  let map_dir, level, line_solver =
+  let map_dir, level, sort_file =
     match Sys.get_argv () with
-    | [| _; "-l"; dir; level |] -> (dir, level, true)
-    | [| _; dir; level |] -> (dir, level, false)
+    | [| _; "-l"; sort_file; dir; level |] -> (dir, level, Some sort_file)
+    | [| _; dir; level |] -> (dir, level, None)
     | _ -> failwith "Usage: spaceship MAP_DIR LEVEL"
   in
-  let problem =
-    In_channel.read_lines (map_dir ^ "/spaceship" ^ level ^ ".txt")
-    |> List.filter ~f:(String.( <> ) "") (* Skip empty lines *)
-    |> List.map ~f:(fun line ->
-           match String.split line ~on:' ' with
-           | [ key; value ] -> (Int.of_string key, Int.of_string value)
-           | _ -> failwith ("Invalid line: " ^ line))
+  let problem = read_problem_file (map_dir ^ "/spaceship" ^ level ^ ".txt") in
+  let sol =
+    match sort_file with
+    | Some sort_file -> line_solve ~sort_file problem
+    | None -> solve problem
   in
-  let sol = if line_solver then line_solve problem else solve problem in
   let trace =
     let trace_ref = ref [] in
     simulate ~callback:(fun xy -> trace_ref := xy :: !trace_ref) problem sol;
