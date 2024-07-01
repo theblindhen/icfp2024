@@ -177,7 +177,7 @@ let window_seeder n_windows init_state seed_generator generator trials =
   | None -> None
   | Some seeds -> Some seeds
 
-let eager_punter init_state seed_generator generator trials_per_punt =
+let eager_punter init_state seed_generator generator total_time trials_per_punt =
   let rec aux (state, acc_seeds) =
     (* printf "State\n%s" (dump_state state);
        printf "Lambdaman at %d, %d and %d pills left in window \n%!" (fst state.lambdaman)
@@ -196,6 +196,9 @@ let eager_punter init_state seed_generator generator trials_per_punt =
         let pills_left = Hash_set.Poly.length state'.pills in
         printf "Found seed %s (%d pills left)\n%!" (Bigint.to_string seed) pills_left;
         if pills_left = 0 then Some (List.rev (seed :: acc_seeds))
+        else if state'.ticks > total_time then (
+          printf "Ticks exceeded, bailing\n";
+          None)
         else aux (state', seed :: acc_seeds)
   in
   match aux (init_state, []) with
