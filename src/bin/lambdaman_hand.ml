@@ -186,11 +186,11 @@ let get_hand_solutions level =
 
 exception FoundSolution of Bigint.t list * string * int
 
-let get_random_solutions dir level windowed =
+let get_random_solutions dir level windowed eager =
   let filename = dir ^ "/lambdaman" ^ Int.to_string level ^ ".txt" in
   let grid = Util.load_char_grid filename in
-  let seed_len = 100 in
-  let trials = 10_000 in
+  let seed_len = 25 in
+  let trials = 500 in
   let time = 1_000_000 in
   let doubling = level > 10 && level < 17 in
   let _boost_max = 3 in
@@ -204,7 +204,7 @@ let get_random_solutions dir level windowed =
     (* |> Muttleyman.boost_path boost_max boost_prob *)
   in
   try
-    (if windowed = 1 then (
+    (if windowed = 1 && not eager then (
        printf "Trying to find solution at seed len %d%!\n" seed_len;
        for i = 1 to trials do
          printf ".%!";
@@ -224,24 +224,42 @@ let get_random_solutions dir level windowed =
            printf "Really, there was no solution\n")
        done)
      else
-       let path_generator = path_generator (time / windowed) in
-       printf "Going for a windowed solution with seed len %d%!\n" seed_len;
        let state = Lambdaman_sim.init_state (Array.copy_matrix grid) in
        printf "Lambdaman in (%d, %d)\n" (fst state.lambdaman) (snd state.lambdaman);
-       match Muttleyman.window_seeder windowed state seed_generator path_generator trials with
-       | None -> ()
-       | Some seeds ->
-           printf "I think I found a solution!";
-           printf "Random seeds:\n%s\n"
-             (seeds |> List.map ~f:Bigint.to_string |> String.concat ~sep:" --- ");
-           let path = seeds |> List.map ~f:path_generator |> String.concat in
-           let state = Lambdaman_sim.init_state (Array.copy_matrix grid) in
-           Lambdaman_sim.run_str state path;
-           if state.pills |> Hash_set.Poly.is_empty then
-             raise (FoundSolution (seeds, path, state.ticks))
-           else
-             printf "The solution was a lie!\nFinal state of last run:\n%s\n"
-               (Lambdaman_sim.dump_state state));
+       if eager then (
+         let path_generator = path_generator (time / 8) in
+         printf "Eager punter going for a punt with seed len %d%!\n" seed_len;
+         match Muttleyman.eager_punter state seed_generator path_generator trials with
+         | None -> ()
+         | Some seeds ->
+             printf "I think I found a solution!";
+             printf "Random seeds:\n%s\n"
+               (seeds |> List.map ~f:Bigint.to_string |> String.concat ~sep:" --- ");
+             let path = seeds |> List.map ~f:path_generator |> String.concat in
+             let state = Lambdaman_sim.init_state (Array.copy_matrix grid) in
+             Lambdaman_sim.run_str state path;
+             if state.pills |> Hash_set.Poly.is_empty then
+               raise (FoundSolution (seeds, path, state.ticks))
+             else
+               printf "The solution was a lie!\nFinal state of last run:\n%s\n"
+                 (Lambdaman_sim.dump_state state))
+       else
+         let path_generator = path_generator (time / windowed) in
+         printf "Going for a windowed solution with seed len %d%!\n" seed_len;
+         match Muttleyman.window_seeder windowed state seed_generator path_generator trials with
+         | None -> ()
+         | Some seeds ->
+             printf "I think I found a solution!";
+             printf "Random seeds:\n%s\n"
+               (seeds |> List.map ~f:Bigint.to_string |> String.concat ~sep:" --- ");
+             let path = seeds |> List.map ~f:path_generator |> String.concat in
+             let state = Lambdaman_sim.init_state (Array.copy_matrix grid) in
+             Lambdaman_sim.run_str state path;
+             if state.pills |> Hash_set.Poly.is_empty then
+               raise (FoundSolution (seeds, path, state.ticks))
+             else
+               printf "The solution was a lie!\nFinal state of last run:\n%s\n"
+                 (Lambdaman_sim.dump_state state));
     None
   with
   | FoundSolution (seeds, _path, ticks) ->
@@ -249,7 +267,7 @@ let get_random_solutions dir level windowed =
       (* printf "path:\n%s\n" path; *)
       printf "Random seeds:\n%s\n"
         (seeds |> List.map ~f:Bigint.to_string |> String.concat ~sep:" --- ");
-      printf "Ticks needed: %d\n" ticks;
+      printf "Ticks needed: %d -- %d seeds \n" ticks (List.length seeds);
       None
 
 let check = ref false
@@ -259,6 +277,7 @@ let write = ref false
 let submit = ref false
 let sim = ref false
 let windowed = ref 1
+let eager = ref false
 
 let speclist =
   [
@@ -269,6 +288,7 @@ let speclist =
     ("--submit", Arg.Set submit, "Submit solutions to server (default: false)");
     ("--sim", Arg.Set sim, "Simulate submission (default: false)");
     ("--windowed", Arg.Set_int windowed, "The number of windows for random (default: 1)");
+    ("--eager", Arg.Set eager, "Use the eager punter (default: false)");
   ]
 
 let usage_msg = "lambdaman_hand [--check] [--write] [--submit] [--dir <dir>] <level>"
@@ -280,7 +300,7 @@ let () =
   Arg.parse speclist anon_fun usage_msg;
   let dir, level, use_random = (!dir, !level, !random) in
   let sols =
-    if use_random then get_random_solutions dir level !windowed else get_hand_solutions level
+    if use_random then get_random_solutions dir level !windowed !eager else get_hand_solutions level
   in
   match sols with
   | None -> printf "No solution for level %d\n" level

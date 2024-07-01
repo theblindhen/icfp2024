@@ -48,7 +48,7 @@ let pseudo_repeat_random seed_len seed total =
 
 let pseudo_repeat_random_linear_cong seed_len seed total =
   (* Number of repetitions *)
-  let a = Bigint.of_int 1664525 in
+  let a = Bigint.of_int 1664543 in
   let c = Bigint.of_int 1013904223 in
   let reps = total / seed_len in
   let rec aux acc rnd i =
@@ -113,14 +113,18 @@ let pills_in_window ((x1, y1), (x2, y2)) state =
   |> Hash_set.Poly.filter ~f:(fun (x, y) -> x >= x1 && x < x2 && y >= y1 && y < y2)
   |> Hash_set.Poly.length
 
+let run_seed init_state seed_generator generator =
+  let seed = seed_generator () in
+  let path = generator seed in
+  let state = duplicate_state init_state in
+  run_str state path;
+  (state, seed)
+
 let find_good_seed window init_state seed_generator generator =
   (* At the state we're currently at, try to find a good seed for the generator
    * which results in the window being emptied of pills. *)
   try
-    let seed = seed_generator () in
-    let path = generator seed in
-    let state = duplicate_state init_state in
-    run_str state path;
+    let state, seed = run_seed init_state seed_generator generator in
     if pills_in_window window state = 0 then raise (FoundSolution (state, seed));
     None
   with
@@ -170,5 +174,30 @@ let window_seeder n_windows init_state seed_generator generator trials =
         | Some (state', seed) -> aux (state', seed :: acc_seeds) rest)
   in
   match aux (init_state, []) windows with
+  | None -> None
+  | Some seeds -> Some seeds
+
+let eager_punter init_state seed_generator generator trials_per_punt =
+  let rec aux (state, acc_seeds) =
+    (* printf "State\n%s" (dump_state state);
+       printf "Lambdaman at %d, %d and %d pills left in window \n%!" (fst state.lambdaman)
+         (snd state.lambdaman) (Hash_set.length state.pills); *)
+    let reso =
+      List.init trials_per_punt ~f:(fun _i ->
+          (* if Int.(i % 10 = 0) then printf "Trial %d\n%!" (trials_per_punt - i); *)
+          run_seed state seed_generator generator)
+      |> List.sort ~compare:(fun (st1, _) (st2, _) ->
+             Int.compare (Hash_set.Poly.length st1.pills) (Hash_set.Poly.length st2.pills))
+      |> List.hd
+    in
+    match reso with
+    | None -> None
+    | Some (state', seed) ->
+        let pills_left = Hash_set.Poly.length state'.pills in
+        printf "Found seed %s (%d pills left)\n%!" (Bigint.to_string seed) pills_left;
+        if pills_left = 0 then Some (List.rev (seed :: acc_seeds))
+        else aux (state', seed :: acc_seeds)
+  in
+  match aux (init_state, []) with
   | None -> None
   | Some seeds -> Some seeds
